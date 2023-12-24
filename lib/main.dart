@@ -5,13 +5,13 @@ import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_screen.dart';
 
 // 탑레벨
-late final  Box<Todo> todos;
-void main() async {
+late final Box<Todo> todos;
 
+void main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(TodoAdapter());
   // 로드 하고
- Box<Todo> todos =await Hive.openBox<Todo>('todoList.db');
+  todos = await Hive.openBox<Todo>('todoList.db');
   runApp(const MyApp());
 }
 
@@ -24,7 +24,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -32,4 +31,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
