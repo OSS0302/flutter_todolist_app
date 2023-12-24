@@ -20,9 +20,15 @@ class _ListScreenState extends State<ListScreen> {
       ),
       body: ListView(
         children: todos.values
-            .map((todoE) => ListTile(
-                title: Text(todoE.title),
-                subtitle: Text('${todoE.dateTime}'),
+            .map((todoE) => TodoItem(
+                  todo: todoE,
+                  onTapCallBack: (todo) async {
+                    todo.isDone = !todo.isDone;
+                    await todo.save();
+
+                    // 화면갱신
+                    setState(() {});
+                  },
                 ))
             .toList(),
       ),
