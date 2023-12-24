@@ -4,16 +4,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_screen.dart';
 
+// 탑레벨
+late final  Box<Todo> todos;
 void main() async {
-
-
-  // 탑레벨
-  late final  Box<Todo> todos;
 
   await Hive.initFlutter();
   Hive.registerAdapter(TodoAdapter());
   // 로드 하고
- Box<Todo> todosDB =await Hive.openBox<Todo>('todoList.db');
+ Box<Todo> todos =await Hive.openBox<Todo>('todoList.db');
   runApp(const MyApp());
 }
 
