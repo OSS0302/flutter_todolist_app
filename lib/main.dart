@@ -8,6 +8,7 @@ import 'package:todolist/presentation/list_screen.dart';
 late final Box<Todo> todos;
 
 void main() async {
+
   await Hive.initFlutter();
   Hive.registerAdapter(TodoAdapter());
   // 로드 하고
@@ -21,13 +22,22 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+
+    return GestureDetector(
+      onTap: (){
+        FocusManager.instance.primaryFocus?.unfocus();
+      },
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Flutter Demo',
+
+        theme: ThemeData(
+
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
+          useMaterial3: true,
+        ),
+        home: ListScreen(),
       ),
-      home: ListScreen(),
     );
   }
 }

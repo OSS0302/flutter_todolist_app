@@ -17,22 +17,38 @@ class _ListScreenState extends State<ListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ToDo List'),
+        backgroundColor: Colors.blue,
       ),
-      body: ListView(
-        children: todos.values
-            .map((todoE) => TodoItem(
-                  todo: todoE,
-                  onTapCallBack: (todo) async {
-                    todo.isDone = !todo.isDone;
-                    await todo.save();
+      body: Stack(
+        children: [
+          ListView(
+            children: todos.values
+                .map((todoE) => TodoItem(
+                      todo: todoE,
+                      onTapCallBack: (todo) async {
+                        todo.isDone = !todo.isDone;
+                        await todo.save();
 
-                    // 화면갱신
-                    setState(() {});
-                  },
-                ))
-            .toList(),
+                        // 저장하고  화면갱신
+                        setState(() {});
+                      },
+                      onDelete: (Todo) async {
+                        todoE.delete();
+                        //지우고 화면갱신
+                        setState(() {});
+                      },
+                    ))
+                .toList(),
+          ),
+          Center(
+            child: Container(
+              child: Image.asset('assets/main.png'),
+            ),
+          )
+        ],
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.blue,
         onPressed: () async {
           await Navigator.push(
             context,
