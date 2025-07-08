@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:todolist/main.dart';
 import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/todo_item.dart';
@@ -22,7 +23,10 @@ class _ListScreenState extends State<ListScreen> {
         children: [
           Container(
             child: Center(
-              child: Image.asset('assets/main.png',fit: BoxFit.cover,),
+              child: Image.asset(
+                'assets/main.png',
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           ListView(
@@ -38,12 +42,38 @@ class _ListScreenState extends State<ListScreen> {
                       setState(() {});
                     },
                     onDelete: (Todo) async {
-                      todoE.delete();
-                      //지우고 화면갱신
-                      setState(() {});
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('삭제할까요?'),
+                          content: const Text('삭제 이후엔 복구할 수 없습니다.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: Text(
+                                '취소',
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                 todoE.delete();
+                                 Navigator.of(context).pop();
+                                //지우고 화면갱신
+                                setState(() {});
+                              },
+                              child: Text(
+                                '예',
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
                     },
                   ),
-                ).toList(),
+                )
+                .toList(),
           ),
         ],
       ),
