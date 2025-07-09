@@ -18,76 +18,87 @@ class _AddScreenState extends State<AddScreen> {
     super.dispose();
   }
 
+  void _saveTodo() {
+    if (_textController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('할 일을 입력해주세요!')),
+      );
+      return;
+    }
+
+    todos.add(Todo(
+      title: _textController.text,
+      dateTime: DateTime.now().millisecondsSinceEpoch,
+    ));
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('할 일이 저장되었습니다!')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blue,
-        title: const Text('할일 작성해주세요~'),
-        actions: [
-          IconButton(
-              onPressed: () async {
-                // db에 저장
-                todos.add(Todo(
-                  title: _textController.text,
-                  dateTime: DateTime.now().millisecondsSinceEpoch,
-                ));
-
-                // 목록 보이기
-                if (mounted) {
-                  Navigator.pop(context);
-                }
-              },
-              icon: const Icon(Icons.done)),
-        ],
+        title: const Text('할 일 추가하기'),
+        backgroundColor: Colors.blueAccent,
       ),
-      body: ListView(
-        children: [
-          Form(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: _textController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // 텍스트 입력 필드
+            TextFormField(
+              controller: _textController,
+              decoration: InputDecoration(
+                labelText: '할 일을 입력하세요',
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                hintText: '예: 운동하기, 장보기...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.grey[100],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // 미리보기 카드
+            if (_textController.text.trim().isNotEmpty)
+              Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.note_add, color: Colors.blue),
+                  title: Text(_textController.text),
+                  subtitle: Text(
+                    '작성 시간: ${DateTime.now().toLocal()}',
+                    style: const TextStyle(fontSize: 12),
                   ),
-                  hintText: '할일 입력하세요',
-                  hintStyle: const TextStyle(
-                      color: Colors.grey,
-
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
-                  filled: true,
-                  fillColor: Colors.white70,
+                ),
+              ),
+            const Spacer(),
+            // 저장 버튼
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _saveTodo,
+                icon: const Icon(Icons.save),
+                label: const Text('저장하기'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  textStyle: const TextStyle(fontSize: 16),
+                  backgroundColor: Colors.blueAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(
-            height: 5,
-          ),
-          const Divider(
-            thickness: 3,
-            color: Colors.blue,
-          ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20.0),
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.8,
-              height: MediaQuery.of(context).size.width * 0.8,
-              child: Image.asset('assets/Todo.png'),
-            ),
-          ),
-          const SizedBox(
-            height: 5,
-          ),
-          const Divider(
-            thickness: 3,
-            color: Colors.blue,
-          ),
-
-        ],
+          ],
+        ),
       ),
     );
   }
