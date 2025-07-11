@@ -16,10 +16,15 @@ class _ListScreenState extends State<ListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
+      backgroundColor: Colors.black,
       appBar: AppBar(
         title: const Text(
-          '📝 ToDo List',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          '🪄 Elegant ToDo',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 22,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -27,105 +32,69 @@ class _ListScreenState extends State<ListScreen> {
       ),
       body: Stack(
         children: [
-          // 🔸 그라데이션 배경
+          // 그라데이션 배경
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Color(0xFF2193b0), // 청록
-                  Color(0xFF6dd5ed), // 연파랑
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+                colors: [Color(0xFF0F2027), Color(0xFF2C5364)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
           ),
 
-          // 🔸 내용 부분
+          // 흐림 효과
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+            child: Container(color: Colors.black.withOpacity(0.2)),
+          ),
+
+          // 실제 내용
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: todos.isEmpty
                   ? const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle_outline,
-                        size: 72, color: Colors.white70),
-                    SizedBox(height: 16),
+                    Icon(Icons.hourglass_empty,
+                        size: 72, color: Colors.white60),
+                    SizedBox(height: 20),
                     Text(
-                      '할 일이 없습니다!',
+                      '할 일이 없습니다',
                       style: TextStyle(
-                        fontSize: 22,
                         color: Colors.white,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 8),
                     Text(
-                      '+ 버튼을 눌러 추가해보세요!',
-                      style: TextStyle(fontSize: 16, color: Colors.white70),
+                      '오른쪽 아래 + 버튼을 눌러 추가해보세요.',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 16,
+                      ),
                     ),
                   ],
                 ),
               )
                   : ListView.separated(
                 itemCount: todos.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
-                  final todoE = todos.values.elementAt(index);
-                  return Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
+                  final todo = todos.values.elementAt(index);
+                  return GlassCard(
                     child: TodoItem(
-                      todo: todoE,
+                      todo: todo,
                       onTapCallBack: (todo) async {
                         todo.isDone = !todo.isDone;
                         await todo.save();
                         setState(() {});
                       },
                       onDelete: (todo) async {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('삭제할까요?'),
-                            content:
-                            const Text('삭제 이후엔 복구할 수 없습니다.'),
-                            actions: [
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(),
-                                child: const Text('취소'),
-                              ),
-                              TextButton(
-                                onPressed: () async {
-                                  await todo.delete();
-                                  Navigator.of(context).pop();
-
-                                  await showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('삭제되었습니다'),
-                                      content:
-                                      const Text('다음 일정을 추가해 주세요.'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.of(context).pop(),
-                                          child: const Text('확인'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-
-                                  setState(() {});
-                                },
-                                child: const Text('예'),
-                              ),
-                            ],
-                          ),
-                        );
+                        await _showDeleteDialog(todo);
                       },
                     ),
                   );
@@ -136,7 +105,6 @@ class _ListScreenState extends State<ListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.white,
         onPressed: () async {
           await Navigator.push(
             context,
@@ -144,7 +112,59 @@ class _ListScreenState extends State<ListScreen> {
           );
           setState(() {});
         },
-        child: const Icon(Icons.add, color: Colors.blue, size: 28),
+        backgroundColor: Colors.white,
+        child: const Icon(Icons.add, color: Colors.blueAccent, size: 28),
+      ),
+    );
+  }
+
+  Future<void> _showDeleteDialog(var todo) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text('정말 삭제하시겠어요?', style: TextStyle(color: Colors.white)),
+        content: const Text('삭제 후 복구할 수 없습니다.', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await todo.delete();
+              Navigator.of(context).pop();
+              setState(() {});
+            },
+            child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 🔮 Glassmorphism 카드 위젯
+class GlassCard extends StatelessWidget {
+  final Widget child;
+
+  const GlassCard({required this.child, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: child,
+        ),
       ),
     );
   }
