@@ -14,6 +14,13 @@ class ListScreen extends StatefulWidget {
 class _ListScreenState extends State<ListScreen> {
   @override
   Widget build(BuildContext context) {
+    // 완료 항목은 아래로 정렬
+    final sortedTodos = todos.values.toList()
+      ..sort((a, b) {
+        if (a.isDone == b.isDone) return 0;
+        return a.isDone ? 1 : -1;
+      });
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
@@ -32,7 +39,7 @@ class _ListScreenState extends State<ListScreen> {
       ),
       body: Stack(
         children: [
-          // 그라데이션 배경
+          // 배경 그라데이션
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -53,25 +60,24 @@ class _ListScreenState extends State<ListScreen> {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: todos.isEmpty
+              child: sortedTodos.isEmpty
                   ? const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.hourglass_empty,
-                        size: 72, color: Colors.white60),
+                    Icon(Icons.hourglass_empty, size: 72, color: Colors.white60),
                     SizedBox(height: 20),
                     Text(
                       '할 일이 없습니다',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 8),
                     Text(
-                      '오른쪽 아래 + 버튼을 눌러 추가해보세요.',
+                      '+ 버튼을 눌러 추가해보세요!',
                       style: TextStyle(
                         color: Colors.white54,
                         fontSize: 16,
@@ -81,21 +87,25 @@ class _ListScreenState extends State<ListScreen> {
                 ),
               )
                   : ListView.separated(
-                itemCount: todos.length,
+                itemCount: sortedTodos.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
-                  final todo = todos.values.elementAt(index);
+                  final todo = sortedTodos[index];
                   return GlassCard(
-                    child: TodoItem(
-                      todo: todo,
-                      onTapCallBack: (todo) async {
-                        todo.isDone = !todo.isDone;
-                        await todo.save();
-                        setState(() {});
-                      },
-                      onDelete: (todo) async {
-                        await _showDeleteDialog(todo);
-                      },
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: TodoItem(
+                        key: ValueKey(todo.id),
+                        todo: todo,
+                        onTapCallBack: (todo) async {
+                          todo.isDone = !todo.isDone;
+                          await todo.save();
+                          setState(() {});
+                        },
+                        onDelete: (todo) async {
+                          await _showDeleteDialog(todo);
+                        },
+                      ),
                     ),
                   );
                 },
@@ -113,7 +123,9 @@ class _ListScreenState extends State<ListScreen> {
           setState(() {});
         },
         backgroundColor: Colors.white,
-        child: const Icon(Icons.add, color: Colors.blueAccent, size: 28),
+        shape: const CircleBorder(),
+        elevation: 8,
+        child: const Icon(Icons.add, color: Colors.blueAccent, size: 30),
       ),
     );
   }
@@ -128,12 +140,23 @@ class _ListScreenState extends State<ListScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
+            child: const Text('취소', style: TextStyle(color: Colors.white70)),
           ),
           TextButton(
             onPressed: () async {
               await todo.delete();
               Navigator.of(context).pop();
+
+              // 삭제 완료 알림
+              await showDialog(
+                context: context,
+                builder: (context) => const AlertDialog(
+                  backgroundColor: Colors.black87,
+                  title: Text('삭제되었습니다', style: TextStyle(color: Colors.white)),
+                  content: Text('일정이 성공적으로 삭제되었습니다.', style: TextStyle(color: Colors.white70)),
+                ),
+              );
+
               setState(() {});
             },
             child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
