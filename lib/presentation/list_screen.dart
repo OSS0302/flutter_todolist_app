@@ -15,6 +15,19 @@ class ListScreen extends StatefulWidget {
 class _ListScreenState extends State<ListScreen> {
   String _searchKeyword = '';
 
+  Color _getPriorityColor(String? priority) {
+    switch (priority) {
+      case 'high':
+        return Colors.red.withOpacity(0.15);
+      case 'medium':
+        return Colors.orange.withOpacity(0.15);
+      case 'low':
+        return Colors.green.withOpacity(0.15);
+      default:
+        return Colors.white10;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredTodos = todos.values
@@ -214,17 +227,6 @@ class _ListScreenState extends State<ListScreen> {
     );
   }
 
-  Color _getPriorityColor(int? priority) {
-    switch (priority) {
-      case 1:
-        return Colors.red.withOpacity(0.15);
-      case 2:
-        return Colors.orange.withOpacity(0.15);
-      case 3:
-      default:
-        return Colors.blue.withOpacity(0.1);
-    }
-  }
 }
 
 // ✅ 카드 스타일
