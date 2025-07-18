@@ -13,7 +13,7 @@ class StatsScreen extends StatelessWidget {
 
     final priorityCount = {1: 0, 2: 0, 3: 0};
     for (final t in todos.values) {
-      final p = t.priority ?? 3;
+      final int p = (t.priority ?? 3) as int;
       priorityCount[p] = (priorityCount[p] ?? 0) + 1;
     }
 
