@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:todolist/main.dart';
 import 'package:todolist/model/todo.dart';
 
@@ -12,6 +13,8 @@ class AddScreen extends StatefulWidget {
 
 class _AddScreenState extends State<AddScreen> {
   final _textController = TextEditingController();
+  DateTime? _selectedDueDate;
+  String? _selectedPriority;
 
   @override
   void dispose() {
@@ -31,8 +34,10 @@ class _AddScreenState extends State<AddScreen> {
     }
 
     todos.add(Todo(
-      title: _textController.text,
+      title: _textController.text.trim(),
       dateTime: DateTime.now().millisecondsSinceEpoch,
+      dueDate: _selectedDueDate,
+      priority: _selectedPriority,
     ));
 
     Navigator.pop(context);
@@ -42,6 +47,32 @@ class _AddScreenState extends State<AddScreen> {
         backgroundColor: Colors.green,
       ),
     );
+  }
+
+  Future<void> _pickDueDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDueDate ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Colors.tealAccent,
+              onSurface: Colors.white,
+            ),
+            dialogBackgroundColor: Colors.black87,
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() => _selectedDueDate = picked);
+    }
   }
 
   @override
@@ -59,7 +90,6 @@ class _AddScreenState extends State<AddScreen> {
       ),
       body: Stack(
         children: [
-          // 배경 그라디언트
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -69,7 +99,6 @@ class _AddScreenState extends State<AddScreen> {
               ),
             ),
           ),
-          // 블러 효과
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: Container(color: Colors.black.withOpacity(0.2)),
@@ -79,7 +108,7 @@ class _AddScreenState extends State<AddScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // 입력 필드
+                  // 할일 입력
                   GlassCard(
                     child: TextFormField(
                       controller: _textController,
@@ -98,23 +127,41 @@ class _AddScreenState extends State<AddScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // 미리보기 카드
-                  if (_textController.text.trim().isNotEmpty)
-                    GlassCard(
-                      color: Colors.white.withOpacity(0.05),
-                      child: ListTile(
-                        leading: const Icon(Icons.note_alt, color: Colors.lightBlueAccent),
-                        title: Text(
-                          _textController.text,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        subtitle: Text(
-                          '🕒 ${DateTime.now().toLocal().toString().substring(0, 16)}',
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
+                  // 우선순위 선택
+                  GlassCard(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedPriority,
+                      dropdownColor: Colors.black87,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: '우선순위 선택',
+                        labelStyle: TextStyle(color: Colors.white70),
+                        border: InputBorder.none,
                       ),
+                      items: const [
+                        DropdownMenuItem(value: 'high', child: Text('🔥 높음')),
+                        DropdownMenuItem(value: 'medium', child: Text('🌟 보통')),
+                        DropdownMenuItem(value: 'low', child: Text('🍃 낮음')),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedPriority = value);
+                      },
                     ),
+                  ),
+                  // 마감일 선택
+                  GlassCard(
+                    child: ListTile(
+                      title: const Text('마감일 선택', style: TextStyle(color: Colors.white70)),
+                      subtitle: Text(
+                        _selectedDueDate != null
+                            ? DateFormat('yyyy-MM-dd').format(_selectedDueDate!)
+                            : '선택 안 함',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      trailing: const Icon(Icons.calendar_today, color: Colors.white70),
+                      onTap: _pickDueDate,
+                    ),
+                  ),
                   const Spacer(),
                   // 저장 버튼
                   SizedBox(
@@ -144,7 +191,7 @@ class _AddScreenState extends State<AddScreen> {
   }
 }
 
-// 공통 글래스 카드 위젯
+// 재사용 카드 위젯
 class GlassCard extends StatelessWidget {
   final Widget child;
   final Color? color;
@@ -157,7 +204,7 @@ class GlassCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color ?? Colors.white.withOpacity(0.04),
+        color: color ?? Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
