@@ -14,6 +14,7 @@ class ListScreen extends StatefulWidget {
 
 class _ListScreenState extends State<ListScreen> {
   String _searchKeyword = '';
+  bool _showOnlyFavorites = false;
 
   Color _getPriorityColor(String? priority) {
     switch (priority) {
@@ -31,29 +32,49 @@ class _ListScreenState extends State<ListScreen> {
   @override
   Widget build(BuildContext context) {
     final filteredTodos = todos.values
-        .where((todo) => todo.title.contains(_searchKeyword))
+        .where((todo) =>
+    todo.title.contains(_searchKeyword) &&
+        (!_showOnlyFavorites || todo.isFavorite))
         .toList()
       ..sort((a, b) {
-        if (a.isDone == b.isDone) {
-          return a.dueDate?.compareTo(b.dueDate ?? DateTime.now()) ?? 0;
+        if (a.isFavorite != b.isFavorite) {
+          return b.isFavorite ? 1 : -1;
         }
-        return a.isDone ? 1 : -1;
+        if (a.isDone != b.isDone) {
+          return a.isDone ? 1 : -1;
+        }
+        return (a.dueDate ?? DateTime.now())
+            .compareTo(b.dueDate ?? DateTime.now());
       });
 
     final completedCount = filteredTodos.where((t) => t.isDone).length;
-    final progress = filteredTodos.isEmpty
-        ? 0.0
-        : completedCount / filteredTodos.length;
+    final progress =
+    filteredTodos.isEmpty ? 0.0 : completedCount / filteredTodos.length;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('🪄 Elegant ToDo',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          '🪄 Elegant ToDo',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _showOnlyFavorites ? Icons.star : Icons.star_border,
+              color: _showOnlyFavorites ? Colors.amber : Colors.white70,
+            ),
+            onPressed: () {
+              setState(() {
+                _showOnlyFavorites = !_showOnlyFavorites;
+              });
+            },
+          )
+        ],
       ),
       body: Stack(
         children: [
@@ -74,16 +95,19 @@ class _ListScreenState extends State<ListScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: TextField(
-                    onChanged: (value) => setState(() => _searchKeyword = value),
+                    onChanged: (value) =>
+                        setState(() => _searchKeyword = value),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: '할 일을 검색하세요...',
                       hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: Colors.white10,
-                      prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                      prefixIcon:
+                      const Icon(Icons.search, color: Colors.white54),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -96,7 +120,8 @@ class _ListScreenState extends State<ListScreen> {
                   child: LinearProgressIndicator(
                     value: progress,
                     backgroundColor: Colors.white12,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.lightGreenAccent),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        Colors.lightGreenAccent),
                     minHeight: 6,
                   ),
                 ),
@@ -106,7 +131,8 @@ class _ListScreenState extends State<ListScreen> {
                       ? const Center(
                     child: Text(
                       '할 일이 없습니다.',
-                      style: TextStyle(color: Colors.white70, fontSize: 18),
+                      style:
+                      TextStyle(color: Colors.white70, fontSize: 18),
                     ),
                   )
                       : ListView.builder(
@@ -119,16 +145,19 @@ class _ListScreenState extends State<ListScreen> {
                           color: Colors.green,
                           alignment: Alignment.centerLeft,
                           padding: const EdgeInsets.only(left: 24),
-                          child: const Icon(Icons.check, color: Colors.white),
+                          child:
+                          const Icon(Icons.check, color: Colors.white),
                         ),
                         secondaryBackground: Container(
                           color: Colors.red,
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 24),
-                          child: const Icon(Icons.delete, color: Colors.white),
+                          child: const Icon(Icons.delete,
+                              color: Colors.white),
                         ),
                         onDismissed: (direction) async {
-                          if (direction == DismissDirection.startToEnd) {
+                          if (direction ==
+                              DismissDirection.startToEnd) {
                             todo.isDone = !todo.isDone;
                             await todo.save();
                           } else {
@@ -144,21 +173,48 @@ class _ListScreenState extends State<ListScreen> {
                               todo.title,
                               style: TextStyle(
                                 fontSize: 18,
-                                color: todo.isDone ? Colors.grey : Colors.white,
+                                color: todo.isDone
+                                    ? Colors.grey
+                                    : Colors.white,
                                 decoration: todo.isDone
                                     ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
+                                    : null,
                               ),
                             ),
                             subtitle: todo.dueDate != null
                                 ? Text(
                               '📅 ${DateFormat('yyyy-MM-dd').format(todo.dueDate!)}',
-                              style: const TextStyle(color: Colors.white60),
+                              style: const TextStyle(
+                                  color: Colors.white60),
                             )
                                 : null,
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                              onPressed: () => _showDeleteDialog(todo),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    todo.isFavorite
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                    color: todo.isFavorite
+                                        ? Colors.amber
+                                        : Colors.white38,
+                                  ),
+                                  onPressed: () async {
+                                    setState(() {
+                                      todo.isFavorite =
+                                      !todo.isFavorite;
+                                    });
+                                    await todo.save();
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: Colors.redAccent),
+                                  onPressed: () =>
+                                      _showDeleteDialog(todo),
+                                ),
+                              ],
                             ),
                             onTap: () async {
                               todo.isDone = !todo.isDone;
@@ -190,13 +246,17 @@ class _ListScreenState extends State<ListScreen> {
     );
   }
 
+  
+
   Future<void> _showDeleteDialog(var todo) async {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        title: const Text('정말 삭제하시겠어요?', style: TextStyle(color: Colors.white)),
-        content: const Text('삭제 후 복구할 수 없습니다.', style: TextStyle(color: Colors.white70)),
+        title: const Text('정말 삭제하시겠어요?',
+            style: TextStyle(color: Colors.white)),
+        content: const Text('삭제 후 복구할 수 없습니다.',
+            style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -222,14 +282,14 @@ class _ListScreenState extends State<ListScreen> {
       builder: (_) => const AlertDialog(
         backgroundColor: Colors.black87,
         title: Text('삭제 완료', style: TextStyle(color: Colors.white)),
-        content: Text('할 일이 삭제되었습니다.', style: TextStyle(color: Colors.white70)),
+        content:
+        Text('할 일이 삭제되었습니다.', style: TextStyle(color: Colors.white70)),
       ),
     );
   }
-
 }
 
-// ✅ 카드 스타일
+// ✅ 카드 스타일 위젯
 class GlassCard extends StatelessWidget {
   final Widget child;
   final Color? color;
