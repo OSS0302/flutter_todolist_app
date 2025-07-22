@@ -22,11 +22,17 @@ class Todo extends HiveObject {
   @HiveField(5)
   String? priority;
 
+  @HiveField(6)
+  bool isFavorite;
+
+
+
   Todo({
     required this.title,
     required this.dateTime,
     this.isDone = false,
     this.dueDate,
     this.priority,
+    this.isFavorite = false,
   });
 }
