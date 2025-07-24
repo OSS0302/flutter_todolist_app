@@ -125,6 +125,7 @@ class StatsScreen extends StatelessWidget {
                 leading: const Icon(Icons.check_circle,
                     color: Colors.greenAccent),
               )),
+              _buildMostProductiveDay(), // 🔥 추가된 부분
             ],
           ),
         ),
@@ -276,6 +277,54 @@ class StatsScreen extends StatelessWidget {
           child: Text(line, style: const TextStyle(color: Colors.white60)),
         )),
       ],
+    );
+  }
+
+  Widget _buildMostProductiveDay() {
+    final Map<int, int> weekdayDoneCount = {
+      1: 0, // 월
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+      6: 0,
+      7: 0, // 일
+    };
+
+    for (final t in todos.values) {
+      if (t.isDone) {
+        final doneDate = DateTime.fromMillisecondsSinceEpoch(t.dateTime);
+        final weekday = doneDate.weekday;
+        weekdayDoneCount[weekday] = (weekdayDoneCount[weekday] ?? 0) + 1;
+      }
+    }
+
+    if (weekdayDoneCount.values.every((count) => count == 0)) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          '아직 완료한 항목이 없어 분석할 수 없습니다.',
+          style: TextStyle(color: Colors.white38),
+        ),
+      );
+    }
+
+    final maxEntry = weekdayDoneCount.entries.reduce((a, b) => a.value > b.value ? a : b);
+    final mostProductiveDay = DateFormat.EEEE('ko_KR')
+        .format(DateTime(2024, 1, maxEntry.key + 1)); // 월요일이 1
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('🧠 가장 생산적인 요일',
+              style: TextStyle(color: Colors.white70, fontSize: 18)),
+          const SizedBox(height: 8),
+          Text('$mostProductiveDay에 가장 많이 완료했어요!',
+              style: const TextStyle(color: Colors.lightGreenAccent, fontSize: 16)),
+        ],
+      ),
     );
   }
 }
