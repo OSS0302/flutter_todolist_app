@@ -63,13 +63,13 @@ class StatsScreen extends StatelessWidget {
                     if (percent == 1.0)
                       const Padding(
                         padding: EdgeInsets.only(top: 4),
-                        child: Text('🎉 완벽해요!',
+                        child: Text('🎉 완료!',
                             style: TextStyle(color: Colors.greenAccent)),
                       ),
                     if (percent >= 0.8 && percent < 1.0)
                       const Padding(
                         padding: EdgeInsets.only(top: 4),
-                        child: Text('🔥 목표치 도달! 계속 유지해요!',
+                        child: Text('🔥 지속해요!',
                             style: TextStyle(color: Colors.orangeAccent)),
                       ),
                   ],
@@ -125,11 +125,112 @@ class StatsScreen extends StatelessWidget {
                 leading: const Icon(Icons.check_circle,
                     color: Colors.greenAccent),
               )),
-              _buildMostProductiveDay(), // 🔥 추가된 부분
+              _buildMostProductiveDay(),
+              _buildCategoryStats(),
+              _buildGrowthAnalysis(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCategoryStats() {
+    final categoryMap = <String, int>{};
+    for (final t in todos.values) {
+      final cat = t.category ?? '기타';
+      categoryMap[cat] = (categoryMap[cat] ?? 0) + 1;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text('📚 카테고리별 통계',
+            style: TextStyle(color: Colors.white70, fontSize: 18)),
+        const SizedBox(height: 12),
+        if (categoryMap.isEmpty)
+          const Text('카테고리가 지정된 할 일이 없습니다.',
+              style: TextStyle(color: Colors.white38)),
+        ...categoryMap.entries.map((e) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                  child: Text(e.key,
+                      style:
+                      const TextStyle(color: Colors.white60))),
+              Text('${e.value}개',
+                  style: const TextStyle(color: Colors.white70)),
+            ],
+          ),
+        )),
+      ],
+    );
+  }
+
+  Widget _buildGrowthAnalysis() {
+    final now = DateTime.now();
+    final lastWeek = now.subtract(const Duration(days: 7));
+    final lastMonth = DateTime(now.year, now.month - 1, now.day);
+
+    final weekCountNow = todos.values.where((t) {
+      final date = DateTime.fromMillisecondsSinceEpoch(t.dateTime);
+      return t.isDone && date.isAfter(lastWeek);
+    }).length;
+
+    final weekCountPrev = todos.values.where((t) {
+      final date = DateTime.fromMillisecondsSinceEpoch(t.dateTime);
+      return t.isDone && date.isAfter(lastWeek.subtract(const Duration(days: 7))) && date.isBefore(lastWeek);
+    }).length;
+
+    final monthCountNow = todos.values.where((t) {
+      final date = DateTime.fromMillisecondsSinceEpoch(t.dateTime);
+      return t.isDone && date.isAfter(lastMonth);
+    }).length;
+
+    final monthCountPrev = todos.values.where((t) {
+      final date = DateTime.fromMillisecondsSinceEpoch(t.dateTime);
+      return t.isDone && date.isAfter(DateTime(lastMonth.year, lastMonth.month - 1, lastMonth.day)) && date.isBefore(lastMonth);
+    }).length;
+
+    String growthText(int current, int prev) {
+      if (prev == 0 && current > 0) return '신규 활동 시작!';
+      if (prev == 0) return '변화 없음';
+      final growth = ((current - prev) / prev * 100).toStringAsFixed(1);
+      return '${growth.startsWith('-') ? '' : '+'}$growth%';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text('📊 주간 / 월간 성장률 분석',
+            style: TextStyle(color: Colors.white70, fontSize: 18)),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Column(
+              children: [
+                Text(growthText(weekCountNow, weekCountPrev),
+                    style: const TextStyle(
+                        fontSize: 18, color: Colors.greenAccent)),
+                const SizedBox(height: 4),
+                const Text('주간', style: TextStyle(color: Colors.white70)),
+              ],
+            ),
+            Column(
+              children: [
+                Text(growthText(monthCountNow, monthCountPrev),
+                    style: const TextStyle(
+                        fontSize: 18, color: Colors.greenAccent)),
+                const SizedBox(height: 4),
+                const Text('월간', style: TextStyle(color: Colors.white70)),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -282,13 +383,13 @@ class StatsScreen extends StatelessWidget {
 
   Widget _buildMostProductiveDay() {
     final Map<int, int> weekdayDoneCount = {
-      1: 0, // 월
+      1: 0,
       2: 0,
       3: 0,
       4: 0,
       5: 0,
       6: 0,
-      7: 0, // 일
+      7: 0,
     };
 
     for (final t in todos.values) {
@@ -311,7 +412,7 @@ class StatsScreen extends StatelessWidget {
 
     final maxEntry = weekdayDoneCount.entries.reduce((a, b) => a.value > b.value ? a : b);
     final mostProductiveDay = DateFormat.EEEE('ko_KR')
-        .format(DateTime(2024, 1, maxEntry.key + 1)); // 월요일이 1
+        .format(DateTime(2024, 1, maxEntry.key + 1));
 
     return Padding(
       padding: const EdgeInsets.only(top: 24.0),
