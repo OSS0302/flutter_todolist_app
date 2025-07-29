@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:todolist/main.dart';
 import 'package:todolist/model/todo.dart';
+import 'package:todolist/presentation/list_screen.dart';
 
 class AddScreen extends StatefulWidget {
   const AddScreen({super.key});
@@ -22,12 +24,19 @@ class _AddScreenState extends State<AddScreen> {
     super.dispose();
   }
 
-  void _saveTodo() {
+  void _saveTodoWithDialog() {
     if (_textController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('할 일을 입력해주세요!'),
-          backgroundColor: Colors.redAccent,
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('입력 오류'),
+          content: const Text('할 일을 입력해주세요!'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
         ),
       );
       return;
@@ -40,13 +49,39 @@ class _AddScreenState extends State<AddScreen> {
       priority: _selectedPriority,
     ));
 
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('할 일이 저장되었습니다!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    if (_selectedDueDate != null &&
+        DateUtils.isSameDay(_selectedDueDate, DateTime.now())) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('⚠️ 오늘 마감!'),
+          content: const Text('오늘 마감인 할 일을 추가했어요!'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // 다이얼로그 닫기
+                Navigator.pop(context); // 이전 화면 닫기
+              },
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('저장 완료'),
+          content: const Text('할 일이 저장되었습니다!'),
+          actions: [
+            TextButton(
+              onPressed: () => context.push('/'),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _pickDueDate() async {
@@ -167,7 +202,7 @@ class _AddScreenState extends State<AddScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _saveTodo,
+                      onPressed: _saveTodoWithDialog,
                       icon: const Icon(Icons.save),
                       label: const Text('저장하기'),
                       style: ElevatedButton.styleFrom(
