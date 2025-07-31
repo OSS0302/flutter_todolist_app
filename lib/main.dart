@@ -3,6 +3,8 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_screen.dart';
+import 'package:todolist/router/routes.dart';
+
 
 // 탑레벨
 late final Box<Todo> todos;
@@ -27,7 +29,8 @@ class MyApp extends StatelessWidget {
       onTap: (){
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: MaterialApp(
+      child: MaterialApp.router(
+        routerConfig: router,
         debugShowCheckedModeBanner: false,
         title: 'Flutter Demo',
 
@@ -36,7 +39,6 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
           useMaterial3: true,
         ),
-        home: ListScreen(),
       ),
     );
   }
