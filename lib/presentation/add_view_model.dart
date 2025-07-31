@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:todolist/model/todo.dart';
 import 'package:todolist/main.dart';
+import 'package:todolist/model/todo.dart';
 
 class AddViewModel extends ChangeNotifier {
   final textController = TextEditingController();
@@ -31,9 +31,14 @@ class AddViewModel extends ChangeNotifier {
     return DateUtils.isSameDay(selectedDueDate, DateTime.now());
   }
 
-  void saveTodo() {
+  Future<void> saveTodo() async {
     final trimmed = textController.text.trim();
     if (trimmed.isEmpty) return;
+
+    isLoading = true;
+    notifyListeners();
+
+    await Future.delayed(const Duration(seconds: 1)); // simulate delay
 
     todos.add(Todo(
       title: trimmed,
@@ -41,6 +46,9 @@ class AddViewModel extends ChangeNotifier {
       dueDate: selectedDueDate,
       priority: selectedPriority,
     ));
+
+    isLoading = false;
+    notifyListeners();
   }
 
   void disposeViewModel() {

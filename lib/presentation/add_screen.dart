@@ -2,18 +2,19 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:todolist/presentation/add_view_model.dart';
-import 'package:todolist/presentation/list_screen.dart';
+import 'package:intl/intl.dart';
+
+import 'add_view_model.dart';
 
 class AddScreen extends StatelessWidget {
   const AddScreen({super.key});
 
   Future<void> _pickDueDate(BuildContext context) async {
-    final addViewModel = context.watch<AddViewModel>();
+    final vm = context.read<AddViewModel>();
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: addViewModel.selectedDueDate ?? now,
+      initialDate: vm.selectedDueDate ?? now,
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
       builder: (context, child) {
@@ -30,11 +31,11 @@ class AddScreen extends StatelessWidget {
       },
     );
     if (picked != null) {
-      addViewModel.setDueDate(picked);
+      vm.setDueDate(picked);
     }
   }
 
-  void _save(BuildContext context) {
+  void _save(BuildContext context) async {
     final vm = context.read<AddViewModel>();
 
     if (!vm.isInputValid) {
@@ -49,7 +50,7 @@ class AddScreen extends StatelessWidget {
       return;
     }
 
-    vm.saveTodo();
+    await vm.saveTodo();
 
     if (vm.isDueToday()) {
       showDialog(
@@ -171,20 +172,49 @@ class AddScreen extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      // 저장 버튼
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _save(context),
-                          icon: const Icon(Icons.save),
-                          label: const Text('저장하기'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            backgroundColor: Colors.lightGreenAccent.withOpacity(0.85),
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
+
+                      /// ⬇️ Hero 애니메이션이 적용된 저장 버튼과 로딩 인디케이터
+                      Hero(
+                        tag: 'save-hero',
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: vm.isLoading
+                              ? Container(
+                            key: const ValueKey('loading'),
+                            height: 56,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.lightGreenAccent.withOpacity(0.85),
                               borderRadius: BorderRadius.circular(16),
+                            ),
+                            alignment: Alignment.center,
+                            child: const CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                              strokeWidth: 3,
+                            ),
+                          )
+                              : SizedBox(
+                            key: const ValueKey('button'),
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton.icon(
+                              onPressed: vm.isInputValid && !vm.isLoading
+                                  ? () => _save(context)
+                                  : null,
+                              icon: const Icon(Icons.save),
+                              label: const Text('저장하기'),
+                              style: ElevatedButton.styleFrom(
+                                textStyle: const TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
+                                backgroundColor: vm.isInputValid
+                                    ? Colors.lightGreenAccent.withOpacity(0.85)
+                                    : Colors.grey.shade700,
+                                foregroundColor: Colors.black,
+                                disabledBackgroundColor: Colors.grey.shade800,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -197,6 +227,28 @@ class AddScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// 재사용 카드 위젯
+class GlassCard extends StatelessWidget {
+  final Widget child;
+  final Color? color;
+
+  const GlassCard({super.key, required this.child, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color ?? Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: child,
     );
   }
 }
