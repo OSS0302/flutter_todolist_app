@@ -5,7 +5,6 @@ import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/todo_item.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 
-
 class ListScreen extends StatefulWidget {
   const ListScreen({super.key});
 
@@ -30,8 +29,16 @@ class _ListScreenState extends State<ListScreen> {
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('🪄 Elegant ToDo',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Hero(
+          tag: 'app_title',
+          child: Material(
+            color: Colors.transparent,
+            child: Text(
+              '🪄 Elegant ToDo',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+            ),
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -144,16 +151,25 @@ class _ListScreenState extends State<ListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.white,
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddScreen()),
-          );
-          await viewModel.loadTodos();
-        },
-        child: const Icon(Icons.add, color: Colors.blueAccent, size: 28),
+      floatingActionButton: Hero(
+        tag: 'add_button',
+        child: FloatingActionButton(
+          backgroundColor: Colors.white,
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              PageRouteBuilder(
+                transitionDuration: const Duration(milliseconds: 600),
+                pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
+                  opacity: animation,
+                  child: const AddScreen(),
+                ),
+              ),
+            );
+            await viewModel.loadTodos();
+          },
+          child: const Icon(Icons.add, color: Colors.blueAccent, size: 28),
+        ),
       ),
     );
   }

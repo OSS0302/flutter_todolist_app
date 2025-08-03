@@ -1,4 +1,3 @@
-// 📁 lib/viewmodel/list_view_model.dart
 
 import 'package:flutter/material.dart';
 import 'package:todolist/model/todo.dart';
@@ -10,16 +9,17 @@ class ListViewModel extends ChangeNotifier {
   final Box<Todo> _todoBox;
 
   ListViewModel(this._todoBox) {
-    loadTodos();
+    fetchTodos();
   }
 
-  bool isLoading = false;
+  bool _isLoading = false;
   String _searchKeyword = '';
   bool _showOnlyFavorites = false;
   FilterStatus _filterStatus = FilterStatus.all;
 
   List<Todo> _todos = [];
 
+  bool get isLoading => _isLoading;
   List<Todo> get todos => _todos;
   String get searchKeyword => _searchKeyword;
   bool get showOnlyFavorites => _showOnlyFavorites;
@@ -56,14 +56,14 @@ class ListViewModel extends ChangeNotifier {
     return completed / total;
   }
 
-  Future<void> loadTodos() async {
-    isLoading = true;
+  Future<void> fetchTodos() async {
+    _isLoading = true;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 200));
     _todos = _todoBox.values.toList();
 
-    isLoading = false;
+    _isLoading = false;
     notifyListeners();
   }
 
@@ -101,6 +101,10 @@ class ListViewModel extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    await loadTodos();
+    await fetchTodos();
+  }
+
+  Future<void> loadTodos() async {
+    await fetchTodos();
   }
 }
