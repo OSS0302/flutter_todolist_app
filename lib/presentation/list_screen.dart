@@ -13,12 +13,20 @@ class ListScreen extends StatefulWidget {
 }
 
 class _ListScreenState extends State<ListScreen> {
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ListViewModel>().loadTodos();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -135,6 +143,7 @@ class _ListScreenState extends State<ListScreen> {
                     ),
                   )
                       : ListView.builder(
+                    controller: _scrollController,
                     itemCount: viewModel.filteredTodos.length,
                     itemBuilder: (context, index) {
                       final todo = viewModel.filteredTodos[index];
@@ -151,25 +160,22 @@ class _ListScreenState extends State<ListScreen> {
           ),
         ],
       ),
-      floatingActionButton: Hero(
-        tag: 'add_button',
-        child: FloatingActionButton(
-          backgroundColor: Colors.white,
-          onPressed: () async {
-            await Navigator.push(
-              context,
-              PageRouteBuilder(
-                transitionDuration: const Duration(milliseconds: 600),
-                pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
-                  opacity: animation,
-                  child: const AddScreen(),
-                ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.white,
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            PageRouteBuilder(
+              transitionDuration: const Duration(milliseconds: 600),
+              pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
+                opacity: animation,
+                child: const AddScreen(),
               ),
-            );
-            await viewModel.loadTodos();
-          },
-          child: const Icon(Icons.add, color: Colors.blueAccent, size: 28),
-        ),
+            ),
+          );
+          await viewModel.loadTodos();
+        },
+        child: const Icon(Icons.add, color: Colors.blueAccent, size: 28),
       ),
     );
   }
