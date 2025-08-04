@@ -1,12 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/todo_item.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 
 class ListScreen extends StatefulWidget {
-  const ListScreen({super.key});
+  const ListScreen({Key? key}) : super(key: key);
 
   @override
   State<ListScreen> createState() => _ListScreenState();
@@ -147,10 +148,47 @@ class _ListScreenState extends State<ListScreen> {
                     itemCount: viewModel.filteredTodos.length,
                     itemBuilder: (context, index) {
                       final todo = viewModel.filteredTodos[index];
-                      return TodoItem(
-                        todo: todo,
-                        onTapCallBack: (todo) => viewModel.toggleDone(todo),
-                        onDelete: (todo) => viewModel.deleteTodo(todo),
+                      final formattedDate = '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).year}년 '
+                          '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).month}월 '
+                          '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).day}일';
+
+                      return Dismissible(
+                        key: Key(todo.key.toString()),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (_) async {
+                          return await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: Colors.white,
+                              title: const Text('삭제 확인'),
+                              content: const Text('정말 이 항목을 삭제하시겠습니까?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text('취소'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  child: const Text('삭제'),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                              false;
+                        },
+                        onDismissed: (_) => viewModel.deleteTodo(todo),
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          color: Colors.redAccent,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        child: TodoItem(
+                          todo: todo,
+                          formattedDate: formattedDate,
+                          onTapCallBack: (todo) => viewModel.toggleDone(todo),
+                          onDelete: (todo) => viewModel.deleteTodo(todo),
+                        ),
                       );
                     },
                   ),
@@ -166,16 +204,17 @@ class _ListScreenState extends State<ListScreen> {
           await Navigator.push(
             context,
             PageRouteBuilder(
-              transitionDuration: const Duration(milliseconds: 600),
-              pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
-                opacity: animation,
-                child: const AddScreen(),
-              ),
+              transitionDuration: const Duration(milliseconds: 500),
+              pageBuilder: (context, animation, secondaryAnimation) => const AddScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                final curvedAnimation = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+                return FadeTransition(opacity: curvedAnimation, child: child);
+              },
             ),
           );
-          await viewModel.loadTodos();
+          viewModel.refresh();
         },
-        child: const Icon(Icons.add, color: Colors.blueAccent, size: 28),
+        child: const Icon(Icons.add, color: Colors.black87),
       ),
     );
   }

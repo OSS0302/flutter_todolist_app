@@ -96,7 +96,7 @@ class ListViewModel extends ChangeNotifier {
 
   Future<void> deleteTodo(Todo todo) async {
     await todo.delete();
-    _todos.removeWhere((t) => t.id == todo.id);
+    _todos.removeWhere((t) => t.key == todo.key);
     notifyListeners();
   }
 

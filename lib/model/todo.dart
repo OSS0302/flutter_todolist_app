@@ -17,7 +17,7 @@ class Todo extends HiveObject {
   bool isDone;
 
   @HiveField(4)
-  DateTime? dueDate; 
+  DateTime? dueDate;
 
   @HiveField(5)
   String? priority;
@@ -34,7 +34,7 @@ class Todo extends HiveObject {
     this.dueDate,
     this.priority,
     this.isFavorite = false,
-    this.category
+    this.category,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
@@ -42,11 +42,9 @@ class Todo extends HiveObject {
       title: json['title'],
       isDone: json['isDone'] ?? false,
       dateTime: json['dateTime'],
-      dueDate: json['dueDate'] != null
-          ? DateTime.parse(json['dueDate'])
-          : null,
+      dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate']) : null,
       priority: json['priority'],
-      category: json['category'], // ✅ JSON 파싱
+      category: json['category'],
     );
   }
 
@@ -58,9 +56,7 @@ class Todo extends HiveObject {
       'dateTime': dateTime,
       'dueDate': dueDate?.toIso8601String(),
       'priority': priority,
-      'category': category, // ✅ JSON 직렬화
+      'category': category,
     };
   }
 }
-
-
