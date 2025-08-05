@@ -1,24 +1,55 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/todo_item.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 
 class ListScreen extends StatefulWidget {
-  const ListScreen({super.key});
+  const ListScreen({Key? key}) : super(key: key);
 
   @override
   State<ListScreen> createState() => _ListScreenState();
 }
 
 class _ListScreenState extends State<ListScreen> {
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ListViewModel>().loadTodos();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<bool> _showDeleteConfirmDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('삭제 확인'),
+        content: const Text('정말 이 항목을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    ) ??
+        false;
   }
 
   @override
@@ -35,7 +66,10 @@ class _ListScreenState extends State<ListScreen> {
             color: Colors.transparent,
             child: Text(
               '🪄 Elegant ToDo',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22),
             ),
           ),
         ),
@@ -73,7 +107,8 @@ class _ListScreenState extends State<ListScreen> {
                 : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
                   child: TextField(
                     onChanged: (value) => viewModel.setSearchKeyword(value),
                     style: const TextStyle(color: Colors.white),
@@ -82,7 +117,8 @@ class _ListScreenState extends State<ListScreen> {
                       hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: Colors.white10,
-                      prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                      prefixIcon:
+                      const Icon(Icons.search, color: Colors.white54),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -91,27 +127,34 @@ class _ListScreenState extends State<ListScreen> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       ChoiceChip(
-                        label: const Text('전체', style: TextStyle(color: Colors.white)),
+                        label: const Text('전체',
+                            style: TextStyle(color: Colors.white)),
                         selected: viewModel.filterStatus == FilterStatus.all,
                         selectedColor: Colors.lightBlue,
-                        onSelected: (_) => viewModel.setFilterStatus(FilterStatus.all),
+                        onSelected: (_) =>
+                            viewModel.setFilterStatus(FilterStatus.all),
                       ),
                       ChoiceChip(
-                        label: const Text('완료', style: TextStyle(color: Colors.white)),
+                        label: const Text('완료',
+                            style: TextStyle(color: Colors.white)),
                         selected: viewModel.filterStatus == FilterStatus.done,
                         selectedColor: Colors.green,
-                        onSelected: (_) => viewModel.setFilterStatus(FilterStatus.done),
+                        onSelected: (_) =>
+                            viewModel.setFilterStatus(FilterStatus.done),
                       ),
                       ChoiceChip(
-                        label: const Text('미완료', style: TextStyle(color: Colors.white)),
+                        label: const Text('미완료',
+                            style: TextStyle(color: Colors.white)),
                         selected: viewModel.filterStatus == FilterStatus.notDone,
                         selectedColor: Colors.redAccent,
-                        onSelected: (_) => viewModel.setFilterStatus(FilterStatus.notDone),
+                        onSelected: (_) =>
+                            viewModel.setFilterStatus(FilterStatus.notDone),
                       ),
                     ],
                   ),
@@ -121,7 +164,8 @@ class _ListScreenState extends State<ListScreen> {
                   child: LinearProgressIndicator(
                     value: viewModel.progress,
                     backgroundColor: Colors.white12,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.lightGreenAccent),
+                    valueColor:
+                    const AlwaysStoppedAnimation<Color>(Colors.lightGreenAccent),
                     minHeight: 6,
                   ),
                 ),
@@ -131,17 +175,47 @@ class _ListScreenState extends State<ListScreen> {
                       ? const Center(
                     child: Text(
                       '할 일이 없습니다.',
-                      style: TextStyle(color: Colors.white70, fontSize: 18),
+                      style:
+                      TextStyle(color: Colors.white70, fontSize: 18),
                     ),
                   )
                       : ListView.builder(
+                    controller: _scrollController,
                     itemCount: viewModel.filteredTodos.length,
                     itemBuilder: (context, index) {
                       final todo = viewModel.filteredTodos[index];
-                      return TodoItem(
-                        todo: todo,
-                        onTapCallBack: (todo) => viewModel.toggleDone(todo),
-                        onDelete: (todo) => viewModel.deleteTodo(todo),
+                      final formattedDate =
+                          '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).year}년 '
+                          '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).month}월 '
+                          '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).day}일';
+
+                      return Dismissible(
+                        key: Key(todo.key.toString()),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (_) async {
+                          return await _showDeleteConfirmDialog(context);
+                        },
+                        onDismissed: (_) => viewModel.deleteTodo(todo),
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding:
+                          const EdgeInsets.symmetric(horizontal: 20),
+                          color: Colors.redAccent,
+                          child:
+                          const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        child: TodoItem(
+                          todo: todo,
+                          formattedDate: formattedDate,
+                          onTapCallBack: (todo) => viewModel.toggleDone(todo),
+                          onDelete: (todo) async {
+                            final shouldDelete =
+                            await _showDeleteConfirmDialog(context);
+                            if (shouldDelete) {
+                              await viewModel.deleteTodo(todo);
+                            }
+                          },
+                        ),
                       );
                     },
                   ),
@@ -151,25 +225,26 @@ class _ListScreenState extends State<ListScreen> {
           ),
         ],
       ),
-      floatingActionButton: Hero(
-        tag: 'add_button',
-        child: FloatingActionButton(
-          backgroundColor: Colors.white,
-          onPressed: () async {
-            await Navigator.push(
-              context,
-              PageRouteBuilder(
-                transitionDuration: const Duration(milliseconds: 600),
-                pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
-                  opacity: animation,
-                  child: const AddScreen(),
-                ),
-              ),
-            );
-            await viewModel.loadTodos();
-          },
-          child: const Icon(Icons.add, color: Colors.blueAccent, size: 28),
-        ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.white,
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            PageRouteBuilder(
+              transitionDuration: const Duration(milliseconds: 500),
+              pageBuilder: (context, animation, secondaryAnimation) =>
+              const AddScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                final curvedAnimation =
+                CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+                return FadeTransition(opacity: curvedAnimation, child: child);
+              },
+            ),
+          );
+          viewModel.refresh();
+        },
+        child: const Icon(Icons.add, color: Colors.black87),
       ),
     );
   }

@@ -11,7 +11,7 @@ class TodoItem extends StatelessWidget {
     Key? key,
     required this.todo,
     required this.onTapCallBack,
-    required this.onDelete,
+    required this.onDelete, required String formattedDate,
   }) : super(key: key);
 
   @override
