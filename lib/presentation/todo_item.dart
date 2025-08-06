@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:todolist/model/todo.dart';
 
 class TodoItem extends StatelessWidget {
   final Todo todo;
-  final Function(Todo) onTapCallBack;  // 완료 토글용
+  final String formattedDate;
+  final Function(Todo) onTapCallBack; // 완료 토글용
   final Function(Todo) onDelete;
 
   const TodoItem({
     Key? key,
     required this.todo,
+    required this.formattedDate,
     required this.onTapCallBack,
-    required this.onDelete, required String formattedDate,
+    required this.onDelete,
   }) : super(key: key);
 
   @override
@@ -26,8 +27,7 @@ class TodoItem extends StatelessWidget {
         style: TextStyle(color: todo.isDone ? Colors.grey : Colors.black),
       ),
       subtitle: Text(
-        DateFormat.yMMMd()
-            .format(DateTime.fromMillisecondsSinceEpoch(todo.dateTime)),
+        formattedDate,
         style: TextStyle(color: todo.isDone ? Colors.grey : Colors.black),
       ),
       trailing: todo.isDone

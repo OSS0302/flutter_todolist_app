@@ -80,7 +80,8 @@ class _ListScreenState extends State<ListScreen> {
           IconButton(
             icon: Icon(
               viewModel.showOnlyFavorites ? Icons.star : Icons.star_border,
-              color: viewModel.showOnlyFavorites ? Colors.amber : Colors.white38,
+              color:
+              viewModel.showOnlyFavorites ? Colors.amber : Colors.white38,
             ),
             onPressed: () => viewModel.toggleFavoriteFilter(),
           ),
@@ -110,7 +111,8 @@ class _ListScreenState extends State<ListScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 12),
                   child: TextField(
-                    onChanged: (value) => viewModel.setSearchKeyword(value),
+                    onChanged: (value) =>
+                        viewModel.setSearchKeyword(value),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: '할 일을 검색하세요...',
@@ -127,15 +129,16 @@ class _ListScreenState extends State<ListScreen> {
                   ),
                 ),
                 Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       ChoiceChip(
                         label: const Text('전체',
                             style: TextStyle(color: Colors.white)),
-                        selected: viewModel.filterStatus == FilterStatus.all,
+                        selected:
+                        viewModel.filterStatus == FilterStatus.all,
                         selectedColor: Colors.lightBlue,
                         onSelected: (_) =>
                             viewModel.setFilterStatus(FilterStatus.all),
@@ -143,7 +146,8 @@ class _ListScreenState extends State<ListScreen> {
                       ChoiceChip(
                         label: const Text('완료',
                             style: TextStyle(color: Colors.white)),
-                        selected: viewModel.filterStatus == FilterStatus.done,
+                        selected:
+                        viewModel.filterStatus == FilterStatus.done,
                         selectedColor: Colors.green,
                         onSelected: (_) =>
                             viewModel.setFilterStatus(FilterStatus.done),
@@ -151,10 +155,11 @@ class _ListScreenState extends State<ListScreen> {
                       ChoiceChip(
                         label: const Text('미완료',
                             style: TextStyle(color: Colors.white)),
-                        selected: viewModel.filterStatus == FilterStatus.notDone,
+                        selected: viewModel.filterStatus ==
+                            FilterStatus.notDone,
                         selectedColor: Colors.redAccent,
-                        onSelected: (_) =>
-                            viewModel.setFilterStatus(FilterStatus.notDone),
+                        onSelected: (_) => viewModel
+                            .setFilterStatus(FilterStatus.notDone),
                       ),
                     ],
                   ),
@@ -164,8 +169,8 @@ class _ListScreenState extends State<ListScreen> {
                   child: LinearProgressIndicator(
                     value: viewModel.progress,
                     backgroundColor: Colors.white12,
-                    valueColor:
-                    const AlwaysStoppedAnimation<Color>(Colors.lightGreenAccent),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.lightGreenAccent),
                     minHeight: 6,
                   ),
                 ),
@@ -175,8 +180,8 @@ class _ListScreenState extends State<ListScreen> {
                       ? const Center(
                     child: Text(
                       '할 일이 없습니다.',
-                      style:
-                      TextStyle(color: Colors.white70, fontSize: 18),
+                      style: TextStyle(
+                          color: Colors.white70, fontSize: 18),
                     ),
                   )
                       : ListView.builder(
@@ -184,33 +189,39 @@ class _ListScreenState extends State<ListScreen> {
                     itemCount: viewModel.filteredTodos.length,
                     itemBuilder: (context, index) {
                       final todo = viewModel.filteredTodos[index];
+
+                      // ✅ 날짜를 '2025년 8월 2일' 형태로 포맷
+                      final date = DateTime.fromMillisecondsSinceEpoch(
+                          todo.dateTime);
                       final formattedDate =
-                          '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).year}년 '
-                          '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).month}월 '
-                          '${DateTime.fromMillisecondsSinceEpoch(todo.dateTime).day}일';
+                          '${date.year}년 ${date.month}월 ${date.day}일';
 
                       return Dismissible(
                         key: Key(todo.key.toString()),
                         direction: DismissDirection.endToStart,
                         confirmDismiss: (_) async {
-                          return await _showDeleteConfirmDialog(context);
+                          return await _showDeleteConfirmDialog(
+                              context);
                         },
-                        onDismissed: (_) => viewModel.deleteTodo(todo),
+                        onDismissed: (_) =>
+                            viewModel.deleteTodo(todo),
                         background: Container(
                           alignment: Alignment.centerRight,
-                          padding:
-                          const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20),
                           color: Colors.redAccent,
-                          child:
-                          const Icon(Icons.delete, color: Colors.white),
+                          child: const Icon(Icons.delete,
+                              color: Colors.white),
                         ),
                         child: TodoItem(
                           todo: todo,
                           formattedDate: formattedDate,
-                          onTapCallBack: (todo) => viewModel.toggleDone(todo),
+                          onTapCallBack: (todo) =>
+                              viewModel.toggleDone(todo),
                           onDelete: (todo) async {
                             final shouldDelete =
-                            await _showDeleteConfirmDialog(context);
+                            await _showDeleteConfirmDialog(
+                                context);
                             if (shouldDelete) {
                               await viewModel.deleteTodo(todo);
                             }
@@ -236,8 +247,8 @@ class _ListScreenState extends State<ListScreen> {
               const AddScreen(),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
-                final curvedAnimation =
-                CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+                final curvedAnimation = CurvedAnimation(
+                    parent: animation, curve: Curves.easeInOut);
                 return FadeTransition(opacity: curvedAnimation, child: child);
               },
             ),
