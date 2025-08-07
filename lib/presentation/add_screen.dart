@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import 'add_view_model.dart';
 
@@ -61,8 +60,8 @@ class AddScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
+                context.pop(context);
+                context.pop(context);
               },
               child: const Text('확인'),
             ),

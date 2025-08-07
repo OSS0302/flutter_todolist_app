@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/todo_item.dart';
 import 'package:todolist/presentation/list_view_model.dart';
@@ -65,9 +64,9 @@ class _ListScreenState extends State<ListScreen> {
           child: Material(
             color: Colors.transparent,
             child: Text(
-              '🪄 Elegant ToDo',
+              'TodoList',
               style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.blue,
                   fontWeight: FontWeight.bold,
                   fontSize: 22),
             ),
@@ -100,7 +99,7 @@ class _ListScreenState extends State<ListScreen> {
           ),
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-            child: Container(color: Colors.black.withOpacity(0.2)),
+            child: Container(color: Colors.blue.withOpacity(0.2)),
           ),
           SafeArea(
             child: viewModel.isLoading
@@ -113,10 +112,10 @@ class _ListScreenState extends State<ListScreen> {
                   child: TextField(
                     onChanged: (value) =>
                         viewModel.setSearchKeyword(value),
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: Colors.black12),
                     decoration: InputDecoration(
                       hintText: '할 일을 검색하세요...',
-                      hintStyle: const TextStyle(color: Colors.white54),
+                      hintStyle: const TextStyle(color: Colors.white),
                       filled: true,
                       fillColor: Colors.white10,
                       prefixIcon:
@@ -136,16 +135,16 @@ class _ListScreenState extends State<ListScreen> {
                     children: [
                       ChoiceChip(
                         label: const Text('전체',
-                            style: TextStyle(color: Colors.white)),
+                            style: TextStyle(color: Colors.black)),
                         selected:
                         viewModel.filterStatus == FilterStatus.all,
-                        selectedColor: Colors.lightBlue,
+                        selectedColor: Colors.blue,
                         onSelected: (_) =>
                             viewModel.setFilterStatus(FilterStatus.all),
                       ),
                       ChoiceChip(
                         label: const Text('완료',
-                            style: TextStyle(color: Colors.white)),
+                            style: TextStyle(color: Colors.black)),
                         selected:
                         viewModel.filterStatus == FilterStatus.done,
                         selectedColor: Colors.green,
@@ -154,7 +153,7 @@ class _ListScreenState extends State<ListScreen> {
                       ),
                       ChoiceChip(
                         label: const Text('미완료',
-                            style: TextStyle(color: Colors.white)),
+                            style: TextStyle(color: Colors.black)),
                         selected: viewModel.filterStatus ==
                             FilterStatus.notDone,
                         selectedColor: Colors.redAccent,
@@ -168,7 +167,7 @@ class _ListScreenState extends State<ListScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: LinearProgressIndicator(
                     value: viewModel.progress,
-                    backgroundColor: Colors.white12,
+                    backgroundColor: Colors.black12,
                     valueColor: const AlwaysStoppedAnimation<Color>(
                         Colors.lightGreenAccent),
                     minHeight: 6,
@@ -181,7 +180,7 @@ class _ListScreenState extends State<ListScreen> {
                     child: Text(
                       '할 일이 없습니다.',
                       style: TextStyle(
-                          color: Colors.white70, fontSize: 18),
+                          color: Colors.blue, fontSize: 18),
                     ),
                   )
                       : ListView.builder(
@@ -237,7 +236,7 @@ class _ListScreenState extends State<ListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.blue,
         onPressed: () async {
           await Navigator.push(
             context,
