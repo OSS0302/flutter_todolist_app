@@ -1,11 +1,14 @@
 class Note {
+  final String id;
+  final String todoId;
   final String title;
   final String content;
   final int createdAt;
   final int? updatedAt;
 
-//<editor-fold desc="Data Methods">
   const Note({
+    required this.id,
+    required this.todoId,
     required this.title,
     required this.content,
     required this.createdAt,
@@ -46,6 +49,8 @@ class Note {
     int? updatedAt,
   }) {
     return Note(
+      id: id,
+      todoId: todoId,
       title: title ?? this.title,
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
@@ -64,10 +69,14 @@ class Note {
 
   factory Note.fromJson(Map<String, dynamic> map) {
     return Note(
+      id: map['id'] as String,
+      todoId: map['todoId'] as String,
       title: map['title'] as String,
       content: map['content'] as String,
       createdAt: map['createdAt'] as int,
       updatedAt: map['updatedAt'] as int,
     );
+
   }
+
 }
