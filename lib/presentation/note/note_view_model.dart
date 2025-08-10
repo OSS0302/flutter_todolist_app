@@ -1,8 +1,5 @@
-
 import 'package:flutter/material.dart';
-
 import '../../model/note.dart';
-
 
 class NoteViewModel extends ChangeNotifier {
   final String todoId;
@@ -29,12 +26,13 @@ class NoteViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addNote(String content) {
+  void addNote(String content, {String title = ''}) {
     final newNote = Note(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       todoId: todoId,
+      title: title,
       content: content,
-      createdAt: DateTime.now().millisecondsSinceEpoch, title: '',
+      createdAt: DateTime.now().millisecondsSinceEpoch,
     );
     _notes.add(newNote);
     notifyListeners();

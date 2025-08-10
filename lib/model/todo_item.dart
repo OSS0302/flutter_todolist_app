@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:todolist/model/todo.dart';
+import 'package:go_router/go_router.dart';
 
 class TodoItem extends StatelessWidget {
   final Todo todo;
   final String formattedDate;
   final void Function(Todo) onTapCallBack;
   final void Function(Todo) onDelete;
+  final Widget? trailing;
 
   const TodoItem({
     Key? key,
@@ -14,6 +16,7 @@ class TodoItem extends StatelessWidget {
     required this.formattedDate,
     required this.onTapCallBack,
     required this.onDelete,
+    this.trailing,
   }) : super(key: key);
 
   Color _priorityColor(String? priority) {
@@ -91,6 +94,15 @@ class TodoItem extends StatelessWidget {
             Icon(
               _priorityIcon(todo.priority),
               color: _priorityColor(todo.priority),
+            ),
+            // 📌 메모 버튼 추가
+            IconButton(
+              icon: const Icon(Icons.note, color: Colors.amber),
+              onPressed: () {
+                context.push(
+                  '/noteScreen/${todo.id}/${Uri.encodeComponent(todo.title)}',
+                );
+              },
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.redAccent),

@@ -18,15 +18,18 @@ class Note {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Note &&
-          runtimeType == other.runtimeType &&
-          title == other.title &&
-          content == other.content &&
-          createdAt == other.createdAt &&
-          updatedAt == other.updatedAt);
+          (other is Note &&
+              id == other.id &&
+              todoId == other.todoId &&
+              title == other.title &&
+              content == other.content &&
+              createdAt == other.createdAt &&
+              updatedAt == other.updatedAt);
 
   @override
   int get hashCode =>
+      id.hashCode ^
+      todoId.hashCode ^
       title.hashCode ^
       content.hashCode ^
       createdAt.hashCode ^
@@ -34,12 +37,7 @@ class Note {
 
   @override
   String toString() {
-    return 'Note{' +
-        ' title: $title,' +
-        ' content: $content,' +
-        ' createdAt: $createdAt,' +
-        ' updatedAt: $updatedAt,' +
-        '}';
+    return 'Note{id: $id, todoId: $todoId, title: $title, content: $content, createdAt: $createdAt, updatedAt: $updatedAt}';
   }
 
   Note copyWith({
@@ -60,10 +58,12 @@ class Note {
 
   Map<String, dynamic> toJson() {
     return {
-      'title': this.title,
-      'content': this.content,
-      'createdAt': this.createdAt,
-      'updatedAt': this.updatedAt,
+      'id': id,
+      'todoId': todoId,
+      'title': title,
+      'content': content,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
     };
   }
 
@@ -74,9 +74,7 @@ class Note {
       title: map['title'] as String,
       content: map['content'] as String,
       createdAt: map['createdAt'] as int,
-      updatedAt: map['updatedAt'] as int,
+      updatedAt: map['updatedAt'] as int?,
     );
-
   }
-
 }

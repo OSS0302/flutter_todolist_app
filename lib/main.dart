@@ -3,11 +3,10 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:todolist/model/todo.dart';
-import 'package:todolist/presentation/list_screen.dart';
 import 'package:todolist/presentation/list_view_model.dart';
+import 'package:todolist/presentation/note/note_view_model.dart'; // NoteViewModel import
 import 'package:todolist/router/routes.dart';
 
-// 탑레벨
 late final Box<Todo> todos;
 
 void main() async {
@@ -15,7 +14,7 @@ void main() async {
 
   await Hive.initFlutter();
   Hive.registerAdapter(TodoAdapter());
-  // 박스 열기
+
   todos = await Hive.openBox<Todo>('todoList.db');
 
   runApp(const MyApp());
@@ -35,7 +34,9 @@ class MyApp extends StatelessWidget {
           ChangeNotifierProvider(
             create: (_) => ListViewModel(todos),
           ),
-          // 다른 프로바이더가 있으면 여기에 추가
+          ChangeNotifierProvider(
+            create: (_) => NoteViewModel(todoId: '', todoTitle: ''),
+          ),
         ],
         child: MaterialApp.router(
           routerConfig: router,
