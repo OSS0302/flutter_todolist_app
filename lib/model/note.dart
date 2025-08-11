@@ -1,12 +1,28 @@
-class Note {
-  final String id;
-  final String todoId;
-  final String title;
-  final String content;
-  final int createdAt;
-  final int? updatedAt;
+import 'package:hive/hive.dart';
 
-  const Note({
+part 'note.g.dart';
+
+@HiveType(typeId: 1) // typeId는 프로젝트에서 고유하게 설정
+class Note extends HiveObject {
+  @HiveField(0)
+  String id;
+
+  @HiveField(1)
+  String todoId;
+
+  @HiveField(2)
+  String title;
+
+  @HiveField(3)
+  String content;
+
+  @HiveField(4)
+  int createdAt;
+
+  @HiveField(5)
+  int? updatedAt;
+
+  Note({
     required this.id,
     required this.todoId,
     required this.title,
@@ -14,31 +30,6 @@ class Note {
     required this.createdAt,
     this.updatedAt,
   });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          (other is Note &&
-              id == other.id &&
-              todoId == other.todoId &&
-              title == other.title &&
-              content == other.content &&
-              createdAt == other.createdAt &&
-              updatedAt == other.updatedAt);
-
-  @override
-  int get hashCode =>
-      id.hashCode ^
-      todoId.hashCode ^
-      title.hashCode ^
-      content.hashCode ^
-      createdAt.hashCode ^
-      updatedAt.hashCode;
-
-  @override
-  String toString() {
-    return 'Note{id: $id, todoId: $todoId, title: $title, content: $content, createdAt: $createdAt, updatedAt: $updatedAt}';
-  }
 
   Note copyWith({
     String? title,
@@ -56,17 +47,6 @@ class Note {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'todoId': todoId,
-      'title': title,
-      'content': content,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-    };
-  }
-
   factory Note.fromJson(Map<String, dynamic> map) {
     return Note(
       id: map['id'] as String,
@@ -76,5 +56,16 @@ class Note {
       createdAt: map['createdAt'] as int,
       updatedAt: map['updatedAt'] as int?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'todoId': todoId,
+      'title': title,
+      'content': content,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+    };
   }
 }
