@@ -6,6 +6,7 @@ class TodoItem extends StatelessWidget {
   final String formattedDate;
   final Function(Todo) onTapCallBack; // 완료 토글용
   final Function(Todo) onDelete;
+  final Widget trailing;
 
   const TodoItem({
     Key? key,
@@ -13,6 +14,7 @@ class TodoItem extends StatelessWidget {
     required this.formattedDate,
     required this.onTapCallBack,
     required this.onDelete,
+    required this.trailing,
   }) : super(key: key);
 
   @override

@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todolist/presentation/add_screen.dart';
+import 'package:todolist/presentation/note/note_screen.dart';
 import 'package:todolist/presentation/todo_item.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 
@@ -84,6 +85,16 @@ class _ListScreenState extends State<ListScreen> {
             ),
             onPressed: () => viewModel.toggleFavoriteFilter(),
           ),
+          IconButton(
+            icon: const Icon(Icons.note, color: Colors.white), // ✅ 노트 아이콘
+            tooltip: '메모장',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NoteScreen(todoId: '', todoTitle: '',)), // ✅ 이동
+              );
+            },
+          ),
         ],
       ),
       body: Stack(
@@ -112,14 +123,14 @@ class _ListScreenState extends State<ListScreen> {
                   child: TextField(
                     onChanged: (value) =>
                         viewModel.setSearchKeyword(value),
-                    style: const TextStyle(color: Colors.black12),
+                    style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: '할 일을 검색하세요...',
                       hintStyle: const TextStyle(color: Colors.white),
                       filled: true,
                       fillColor: Colors.white10,
-                      prefixIcon:
-                      const Icon(Icons.search, color: Colors.white54),
+                      prefixIcon: const Icon(Icons.search,
+                          color: Colors.white54),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -139,8 +150,8 @@ class _ListScreenState extends State<ListScreen> {
                         selected:
                         viewModel.filterStatus == FilterStatus.all,
                         selectedColor: Colors.blue,
-                        onSelected: (_) =>
-                            viewModel.setFilterStatus(FilterStatus.all),
+                        onSelected: (_) => viewModel
+                            .setFilterStatus(FilterStatus.all),
                       ),
                       ChoiceChip(
                         label: const Text('완료',
@@ -148,8 +159,8 @@ class _ListScreenState extends State<ListScreen> {
                         selected:
                         viewModel.filterStatus == FilterStatus.done,
                         selectedColor: Colors.green,
-                        onSelected: (_) =>
-                            viewModel.setFilterStatus(FilterStatus.done),
+                        onSelected: (_) => viewModel
+                            .setFilterStatus(FilterStatus.done),
                       ),
                       ChoiceChip(
                         label: const Text('미완료',
@@ -187,10 +198,10 @@ class _ListScreenState extends State<ListScreen> {
                     controller: _scrollController,
                     itemCount: viewModel.filteredTodos.length,
                     itemBuilder: (context, index) {
-                      final todo = viewModel.filteredTodos[index];
-
-                      // ✅ 날짜를 '2025년 8월 2일' 형태로 포맷
-                      final date = DateTime.fromMillisecondsSinceEpoch(
+                      final todo =
+                      viewModel.filteredTodos[index];
+                      final date =
+                      DateTime.fromMillisecondsSinceEpoch(
                           todo.dateTime);
                       final formattedDate =
                           '${date.year}년 ${date.month}월 ${date.day}일';
@@ -215,6 +226,23 @@ class _ListScreenState extends State<ListScreen> {
                         child: TodoItem(
                           todo: todo,
                           formattedDate: formattedDate,
+                          trailing: todo.isDone
+                              ? GestureDetector(
+                            onTap: () async {
+                              final shouldDelete =
+                              await _showDeleteConfirmDialog(
+                                  context);
+                              if (shouldDelete) {
+                                await viewModel
+                                    .deleteTodo(todo);
+                              }
+                            },
+                            child: const Icon(Icons.delete,
+                                color: Colors.redAccent),
+                          )
+                              : const Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.white54),
                           onTapCallBack: (todo) =>
                               viewModel.toggleDone(todo),
                           onDelete: (todo) async {
