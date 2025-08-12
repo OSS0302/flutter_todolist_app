@@ -97,7 +97,8 @@ class AddScreen extends StatelessWidget {
           backgroundColor: Colors.black,
           appBar: AppBar(
             title: const Text('📝 할 일 추가하기',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
             backgroundColor: Colors.transparent,
             elevation: 0,
             centerTitle: true,
@@ -154,9 +155,12 @@ class AddScreen extends StatelessWidget {
                             border: InputBorder.none,
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'high', child: Text('🔥 높음')),
-                            DropdownMenuItem(value: 'medium', child: Text('🌟 보통')),
-                            DropdownMenuItem(value: 'low', child: Text('🍃 낮음')),
+                            DropdownMenuItem(
+                                value: 'high', child: Text('🔥 높음')),
+                            DropdownMenuItem(
+                                value: 'medium', child: Text('🌟 보통')),
+                            DropdownMenuItem(
+                                value: 'low', child: Text('🍃 낮음')),
                           ],
                           onChanged: vm.setPriority,
                         ),
@@ -164,57 +168,66 @@ class AddScreen extends StatelessWidget {
                       // 마감일
                       GlassCard(
                         child: ListTile(
-                          title: const Text('마감일 선택', style: TextStyle(color: Colors.white70)),
-                          subtitle: Text(vm.formattedDueDate, style: const TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.calendar_today, color: Colors.white70),
+                          title: const Text('마감일 선택',
+                              style: TextStyle(color: Colors.white70)),
+                          subtitle: Text(vm.formattedDueDate,
+                              style: const TextStyle(color: Colors.white)),
+                          trailing: const Icon(Icons.calendar_today,
+                              color: Colors.white70),
                           onTap: () => _pickDueDate(context),
                         ),
                       ),
-                      const Spacer(),
-
-                      /// ⬇️ Hero 애니메이션이 적용된 저장 버튼과 로딩 인디케이터
-                      Hero(
-                        tag: 'save-hero',
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          child: vm.isLoading
-                              ? Container(
-                            key: const ValueKey('loading'),
-                            height: 56,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Colors.lightGreenAccent.withOpacity(0.85),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            alignment: Alignment.center,
-                            child: const CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                              strokeWidth: 3,
-                            ),
-                          )
-                              : SizedBox(
-                            key: const ValueKey('button'),
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton.icon(
-                              onPressed: vm.isInputValid && !vm.isLoading
-                                  ? () => _save(context)
-                                  : null,
-                              icon: const Icon(Icons.save),
-                              label: const Text('저장하기'),
-                              style: ElevatedButton.styleFrom(
-                                textStyle: const TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
-                                backgroundColor: vm.isInputValid
-                                    ? Colors.lightGreenAccent.withOpacity(0.85)
-                                    : Colors.grey.shade700,
-                                foregroundColor: Colors.black,
-                                disabledBackgroundColor: Colors.grey.shade800,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                            ),
+                      Expanded(
+                        child: Hero(
+                          tag: 'save-hero',
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: vm.isLoading
+                                ? Container(
+                                    key: const ValueKey('loading'),
+                                    height: 56,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.lightGreenAccent
+                                          .withOpacity(0.85),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.black),
+                                      strokeWidth: 3,
+                                    ),
+                                  )
+                                : SizedBox(
+                                    key: const ValueKey('button'),
+                                    width: double.infinity,
+                                    height: 56,
+                                    child: ElevatedButton.icon(
+                                      onPressed:
+                                          vm.isInputValid && !vm.isLoading
+                                              ? () => _save(context)
+                                              : null,
+                                      icon: const Icon(Icons.save),
+                                      label: const Text('저장하기'),
+                                      style: ElevatedButton.styleFrom(
+                                        textStyle: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold),
+                                        backgroundColor: vm.isInputValid
+                                            ? Colors.lightGreenAccent
+                                                .withOpacity(0.85)
+                                            : Colors.grey.shade700,
+                                        foregroundColor: Colors.black,
+                                        disabledBackgroundColor:
+                                            Colors.grey.shade800,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
