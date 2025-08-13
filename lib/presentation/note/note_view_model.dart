@@ -17,7 +17,9 @@ class NoteViewModel extends ChangeNotifier {
     required this.todoId,
     required this.todoTitle,
     required Box<Note> noteBox,
-  }) : _noteBox = noteBox;
+  }) : _noteBox = noteBox {
+    loadNotes();
+  }
 
   Future<void> loadNotes() async {
     _isLoading = true;
