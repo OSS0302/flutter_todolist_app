@@ -28,7 +28,7 @@ final router = GoRouter(
       builder: (context, state) {
         final todoId = state.pathParameters['todoId']!;
         final todoTitle = Uri.decodeComponent(state.pathParameters['todoTitle']!);
-        Box<Note> noteBox = Hive.box<Note>('noteBox');
+        Box<Note> noteBox = Hive.box<Note>('noteList.db');
         return ChangeNotifierProvider(
 
           create: (_) => NoteViewModel(todoId: todoId, todoTitle: todoTitle, noteBox: noteBox)..loadNotes(),
