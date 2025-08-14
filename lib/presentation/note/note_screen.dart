@@ -5,22 +5,45 @@ import 'package:todolist/model/note.dart';
 import 'package:todolist/presentation/note/note_view_model.dart';
 
 class NoteScreen extends StatelessWidget {
-  const NoteScreen({Key? key, required String todoId, required String todoTitle}) : super(key: key);
+  final String todoId;
+  final String todoTitle;
+
+  const NoteScreen({
+    Key? key,
+    required this.todoId,
+    required this.todoTitle,
+  }) : super(key: key);
 
   void _showNoteDialog(BuildContext context, {Note? note}) {
     final vm = context.read<NoteViewModel>();
-    final controller = TextEditingController(text: note?.content ?? '');
+    final titleController = TextEditingController(text: note?.title ?? '');
+    final contentController = TextEditingController(text: note?.content ?? '');
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(note == null ? "새 메모" : "메모 수정"),
-        content: TextField(
-          controller: controller,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: "메모 내용을 입력하세요",
-            border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  hintText: "제목을 입력하세요",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: contentController,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  hintText: "메모 내용을 입력하세요",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
           ),
         ),
         actions: [
@@ -28,17 +51,52 @@ class NoteScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
             child: const Text("취소"),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepOrange,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
-              if (controller.text.trim().isEmpty) return;
+              if (contentController.text.trim().isEmpty) return;
               if (note == null) {
-                vm.addNote(controller.text.trim());
+                vm.addNote(
+                  contentController.text.trim(),
+                  title: titleController.text.trim(),
+                );
               } else {
-                vm.updateNote(note, controller.text.trim());
+                vm.updateNote(
+                  note.copyWith(title: titleController.text.trim()),
+                  contentController.text.trim(),
+                );
               }
               Navigator.pop(context);
             },
             child: const Text("저장"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, Note note) {
+    final vm = context.read<NoteViewModel>();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("메모 삭제"),
+        content: const Text("정말 이 메모를 삭제하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("취소"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              vm.deleteNote(note);
+              Navigator.pop(context);
+            },
+            child: const Text("삭제"),
           ),
         ],
       ),
@@ -52,12 +110,13 @@ class NoteScreen extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             title: Text("${vm.todoTitle}의 메모"),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: () => _showNoteDialog(context),
-              ),
-            ],
+            backgroundColor: Colors.deepOrange,
+            foregroundColor: Colors.white,
+          ),
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: Colors.deepOrange,
+            onPressed: () => _showNoteDialog(context),
+            child: const Icon(Icons.add),
           ),
           body: vm.isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -66,9 +125,11 @@ class NoteScreen extends StatelessWidget {
             child: Text(
               "메모가 없습니다.\n+ 버튼을 눌러 추가하세요.",
               textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           )
               : ListView.builder(
+            padding: const EdgeInsets.all(12),
             itemCount: vm.notes.length,
             itemBuilder: (context, index) {
               final note = vm.notes[index];
@@ -76,27 +137,58 @@ class NoteScreen extends StatelessWidget {
                   .format(DateTime.fromMillisecondsSinceEpoch(
                   note.updatedAt ?? note.createdAt));
 
-              return Card(
-                margin: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                child: ListTile(
-                  title: Text(note.content),
-                  subtitle: Text("작성/수정: $dateText"),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit,
-                            color: Colors.blue),
-                        onPressed: () =>
-                            _showNoteDialog(context, note: note),
+              return Dismissible(
+                key: Key(note.id),
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.only(left: 20),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                secondaryBackground: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                confirmDismiss: (_) async {
+                  _confirmDelete(context, note);
+                  return false;
+                },
+                child: Card(
+                  color: Colors.orange[50],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(12),
+                    title: Text(
+                      note.title.isNotEmpty
+                          ? note.title
+                          : "(제목 없음)",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete,
-                            color: Colors.red),
-                        onPressed: () => vm.deleteNote(note),
-                      ),
-                    ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text(
+                          note.content,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "작성/수정: $dateText",
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    onTap: () =>
+                        _showNoteDialog(context, note: note),
                   ),
                 ),
               );
