@@ -23,13 +23,14 @@ class NoteAdapter extends TypeAdapter<Note> {
       content: fields[3] as String,
       createdAt: fields[4] as int,
       updatedAt: fields[5] as int?,
+      isPinned: fields[6] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..writeByte(4)
       ..write(obj.createdAt)
       ..writeByte(5)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(6)
+      ..write(obj.isPinned);
   }
 
   @override

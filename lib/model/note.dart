@@ -22,6 +22,11 @@ class Note extends HiveObject {
   @HiveField(5)
   int? updatedAt;
 
+  @HiveField(6)
+  bool isPinned;
+
+  int color;
+
   Note({
     required this.id,
     required this.todoId,
@@ -29,6 +34,8 @@ class Note extends HiveObject {
     required this.content,
     required this.createdAt,
     this.updatedAt,
+    this.isPinned = false,
+    this.color = 0xFFFFF3E0, // 기본 색 (오렌지 톤)
   });
 
   Note copyWith({
@@ -36,6 +43,8 @@ class Note extends HiveObject {
     String? content,
     int? createdAt,
     int? updatedAt,
+    bool? isPinned,
+    int? color,
   }) {
     return Note(
       id: id,
@@ -44,6 +53,8 @@ class Note extends HiveObject {
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isPinned: isPinned ?? this.isPinned,
+      color: color ?? this.color,
     );
   }
 
@@ -55,6 +66,8 @@ class Note extends HiveObject {
       content: map['content'] as String,
       createdAt: map['createdAt'] as int,
       updatedAt: map['updatedAt'] as int?,
+      isPinned: map['isPinned'] as bool? ?? false,
+      color: map['color'] as int? ?? 0xFFFFF3E0,
     );
   }
 
@@ -66,6 +79,8 @@ class Note extends HiveObject {
       'content': content,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'isPinned': isPinned,
+      'color': color,
     };
   }
 }
