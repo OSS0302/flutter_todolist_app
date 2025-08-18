@@ -22,6 +22,13 @@ void main() async {
   todos = await Hive.openBox<Todo>('todoList.db');
   notes = await Hive.openBox<Note>('noteList.db'); // notes 박스 열기
 
+  for (var note in notes.values) {
+    if (note.isPinned == null) {
+      note.isPinned = false;
+      await note.save(); // 값 저장
+    }
+  }
+
   runApp(const MyApp());
 }
 
