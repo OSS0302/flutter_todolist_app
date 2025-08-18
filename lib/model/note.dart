@@ -35,7 +35,7 @@ class Note extends HiveObject {
     required this.createdAt,
     this.updatedAt,
     this.isPinned = false,
-    this.color = 0xFFFFF3E0, // 기본 색 (오렌지 톤)
+    this.color = 0xFFFFF3E0,
   });
 
   Note copyWith({
