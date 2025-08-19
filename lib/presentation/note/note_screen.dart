@@ -28,8 +28,8 @@ class NoteScreen extends StatelessWidget {
       builder: (_) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
             title: Text(note == null ? "새 메모" : "메모 수정"),
             content: SingleChildScrollView(
               child: Column(
@@ -154,7 +154,7 @@ class NoteScreen extends StatelessWidget {
             backgroundColor: Colors.deepOrange,
             foregroundColor: Colors.white,
             actions: [
-              // 검색 아이콘
+              // 검색
               IconButton(
                 icon: const Icon(Icons.search),
                 onPressed: () async {
@@ -164,6 +164,20 @@ class NoteScreen extends StatelessWidget {
                   );
                   if (query != null) vm.setSearchQuery(query);
                 },
+              ),
+              // 즐겨찾기(고정) 필터 토글
+              IconButton(
+                icon: Icon(
+                  vm.showOnlyPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                ),
+                onPressed: () => vm.togglePinnedFilter(),
+              ),
+              // 보관함 보기 토글
+              IconButton(
+                icon: Icon(
+                  vm.showArchived ? Icons.archive : Icons.archive_outlined,
+                ),
+                onPressed: () => vm.toggleArchiveFilter(),
               ),
               // 정렬 메뉴
               PopupMenuButton<SortType>(
@@ -218,15 +232,15 @@ class NoteScreen extends StatelessWidget {
                   color: Colors.red,
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.only(left: 20),
-                  child:
-                  const Icon(Icons.delete, color: Colors.white),
+                  child: const Icon(Icons.delete,
+                      color: Colors.white),
                 ),
                 secondaryBackground: Container(
                   color: Colors.red,
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
-                  child:
-                  const Icon(Icons.delete, color: Colors.white),
+                  child: const Icon(Icons.delete,
+                      color: Colors.white),
                 ),
                 confirmDismiss: (_) async {
                   _confirmDelete(context, note);
@@ -262,6 +276,17 @@ class NoteScreen extends StatelessWidget {
                                 : Colors.grey,
                           ),
                           onPressed: () => vm.togglePin(note),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            note.isArchived
+                                ? Icons.archive
+                                : Icons.archive_outlined,
+                            color: note.isArchived
+                                ? Colors.blue
+                                : Colors.grey,
+                          ),
+                          onPressed: () => vm.toggleArchive(note),
                         ),
                       ],
                     ),

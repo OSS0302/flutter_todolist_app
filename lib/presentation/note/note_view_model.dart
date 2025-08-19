@@ -15,9 +15,18 @@ class NoteViewModel extends ChangeNotifier {
   String _searchQuery = '';
   SortType _sortType = SortType.latest;
 
+  String _selectedTag = "all";
+
+  // 🆕 추가된 필터 상태
+  bool _showOnlyPinned = false;
+  bool _showArchived = false;
+
   List<Note> get notes => _notes;
   bool get isLoading => _isLoading;
   SortType get sortType => _sortType;
+  String get selectedTag => _selectedTag;
+  bool get showOnlyPinned => _showOnlyPinned;
+  bool get showArchived => _showArchived;
 
   NoteViewModel({
     required this.todoId,
@@ -31,9 +40,7 @@ class NoteViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _allNotes = _noteBox.values
-        .where((note) => note.todoId == todoId)
-        .toList();
+    _allNotes = _noteBox.values.where((note) => note.todoId == todoId).toList();
 
     _applyFilters();
     _isLoading = false;
@@ -44,6 +51,7 @@ class NoteViewModel extends ChangeNotifier {
       String content, {
         String title = '',
         int? color,
+        List<String>? tags,
       }) async {
     final newNote = Note(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -52,7 +60,9 @@ class NoteViewModel extends ChangeNotifier {
       content: content,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       isPinned: false,
+      isArchived: false, // 🆕 추가
       color: color ?? Colors.orange[50]!.value,
+      tags: tags ?? [],
     );
 
     await _noteBox.put(newNote.id, newNote);
@@ -67,6 +77,8 @@ class NoteViewModel extends ChangeNotifier {
         String? title,
         int? color,
         bool? isPinned,
+        bool? isArchived,
+        List<String>? tags,
       }) async {
     final updatedNote = note.copyWith(
       title: title ?? note.title,
@@ -74,6 +86,8 @@ class NoteViewModel extends ChangeNotifier {
       updatedAt: DateTime.now().millisecondsSinceEpoch,
       color: color ?? note.color,
       isPinned: isPinned ?? note.isPinned,
+      isArchived: isArchived ?? note.isArchived,
+      tags: tags ?? note.tags,
     );
 
     await _noteBox.put(updatedNote.id, updatedNote);
@@ -93,7 +107,12 @@ class NoteViewModel extends ChangeNotifier {
   }
 
   void togglePin(Note note) {
-    updateNote(note, note.content, isPinned: !note.isPinned);
+    updateNote(note, note.content, isPinned: !(note.isPinned ?? false));
+  }
+
+  // 🆕 아카이브 토글
+  void toggleArchive(Note note) {
+    updateNote(note, note.content, isArchived: !(note.isArchived ?? false));
   }
 
   void setSortType(SortType type) {
@@ -108,17 +127,51 @@ class NoteViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setTagFilter(String tag) {
+    _selectedTag = tag;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  List<String> getAllTags() {
+    final tags = <String>{};
+    for (final n in _allNotes) {
+      if (n.tags != null) tags.addAll(n.tags!);
+    }
+    return tags.toList();
+  }
+
+  // 🆕 필터 토글
+  void togglePinnedFilter() {
+    _showOnlyPinned = !_showOnlyPinned;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void toggleArchiveFilter() {
+    _showArchived = !_showArchived;
+    _applyFilters();
+    notifyListeners();
+  }
+
   void _applyFilters() {
     _notes = _allNotes.where((note) {
-      if (_searchQuery.isEmpty) return true;
-      return note.title.contains(_searchQuery) ||
+      final matchesQuery = _searchQuery.isEmpty ||
+          note.title.contains(_searchQuery) ||
           note.content.contains(_searchQuery);
+
+      final matchesTag = (_selectedTag == "all") ||
+          (note.tags?.contains(_selectedTag) ?? false);
+
+      if (_showOnlyPinned && !(note.isPinned ?? false)) return false;
+      if (!_showArchived && (note.isArchived ?? false)) return false;
+
+      return matchesQuery && matchesTag;
     }).toList();
 
-    // 정렬: 고정 메모 먼저, 그 다음 sortType 적용
     _notes.sort((a, b) {
-      if (a.isPinned != b.isPinned) {
-        return b.isPinned ? 1 : -1; // true가 먼저 오도록
+      if ((a.isPinned ?? false) != (b.isPinned ?? false)) {
+        return (b.isPinned ?? false) ? 1 : -1;
       }
       switch (_sortType) {
         case SortType.latest:
