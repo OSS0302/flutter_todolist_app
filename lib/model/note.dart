@@ -25,7 +25,14 @@ class Note extends HiveObject {
   @HiveField(6)
   bool isPinned;
 
+  @HiveField(7)
+  List<String>? tags;
+
   int color;
+
+  @HiveField(8)
+  final bool isArchived;
+
 
   Note({
     required this.id,
@@ -35,7 +42,9 @@ class Note extends HiveObject {
     required this.createdAt,
     this.updatedAt,
     this.isPinned = false,
+    this.tags,
     this.color = 0xFFFFF3E0,
+    this.isArchived = false,
   });
 
   Note copyWith({
@@ -45,6 +54,8 @@ class Note extends HiveObject {
     int? updatedAt,
     bool? isPinned,
     int? color,
+    List<String>? tags,
+    bool? isArchived,
   }) {
     return Note(
       id: id,
@@ -55,32 +66,10 @@ class Note extends HiveObject {
       updatedAt: updatedAt ?? this.updatedAt,
       isPinned: isPinned ?? this.isPinned,
       color: color ?? this.color,
+      tags: tags ?? this.tags,
+      isArchived: isArchived ?? this.isArchived,
+
     );
   }
 
-  factory Note.fromJson(Map<String, dynamic> map) {
-    return Note(
-      id: map['id'] as String,
-      todoId: map['todoId'] as String,
-      title: map['title'] as String,
-      content: map['content'] as String,
-      createdAt: map['createdAt'] as int,
-      updatedAt: map['updatedAt'] as int?,
-      isPinned: map['isPinned'] as bool? ?? false,
-      color: map['color'] as int? ?? 0xFFFFF3E0,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'todoId': todoId,
-      'title': title,
-      'content': content,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'isPinned': isPinned,
-      'color': color,
-    };
-  }
 }
