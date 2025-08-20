@@ -15,51 +15,69 @@ class NoteScreen extends StatelessWidget {
     required this.todoTitle,
   }) : super(key: key);
 
-  /// 메모 추가/수정 다이얼로그
-  void _showNoteDialog(BuildContext context, {Note? note}) {
+  /// 📌 메모 추가/수정 BottomSheet
+  void _showNoteBottomSheet(BuildContext context, {Note? note}) {
     final vm = context.read<NoteViewModel>();
     final titleController = TextEditingController(text: note?.title ?? '');
     final contentController = TextEditingController(text: note?.content ?? '');
     Color selectedColor =
-    note != null ? Color(note.color) : Colors.orange[50]!;
+    note != null ? Color(note.color) : Colors.orange[100]!;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
-            title: Text(note == null ? "새 메모" : "메모 수정"),
-            content: SingleChildScrollView(
-              child: Column(
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return Wrap(
                 children: [
+                  Text(
+                    note == null ? "새 메모" : "메모 수정",
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: titleController,
                     decoration: const InputDecoration(
-                      hintText: "제목을 입력하세요",
-                      border: OutlineInputBorder(),
+                      hintText: "제목",
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(color: Colors.grey),
                     ),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 12),
                   TextField(
                     controller: contentController,
-                    maxLines: 5,
+                    maxLines: null,
                     decoration: const InputDecoration(
-                      hintText: "메모 내용을 입력하세요",
-                      border: OutlineInputBorder(),
+                      hintText: "메모 작성...",
+                      border: InputBorder.none,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Text("색상 선택:"),
+                      const Text("색상: "),
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () {
                           showDialog(
                             context: context,
                             builder: (_) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20)),
                               title: const Text("색상 선택"),
                               content: BlockPicker(
                                 pickerColor: selectedColor,
@@ -76,45 +94,45 @@ class NoteScreen extends StatelessWidget {
                           radius: 14,
                         ),
                       ),
+                      const Spacer(),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepOrange,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () {
+                          if (contentController.text.trim().isEmpty) return;
+                          if (note == null) {
+                            vm.addNote(
+                              contentController.text.trim(),
+                              title: titleController.text.trim(),
+                              color: selectedColor.value,
+                            );
+                          } else {
+                            vm.updateNote(
+                              note,
+                              contentController.text.trim(),
+                              title: titleController.text.trim(),
+                              color: selectedColor.value,
+                            );
+                          }
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.save),
+                        label: const Text("저장"),
+                      ),
                     ],
-                  )
+                  ),
+                  const SizedBox(height: 20),
                 ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("취소"),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepOrange,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () {
-                  if (contentController.text.trim().isEmpty) return;
-                  if (note == null) {
-                    vm.addNote(
-                      contentController.text.trim(),
-                      title: titleController.text.trim(),
-                      color: selectedColor.value,
-                    );
-                  } else {
-                    vm.updateNote(
-                      note,
-                      contentController.text.trim(),
-                      title: titleController.text.trim(),
-                      color: selectedColor.value,
-                    );
-                  }
-                  Navigator.pop(context);
-                },
-                child: const Text("저장"),
-              ),
-            ],
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -124,6 +142,7 @@ class NoteScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("메모 삭제"),
         content: const Text("정말 이 메모를 삭제하시겠습니까?"),
         actions: [
@@ -132,7 +151,13 @@ class NoteScreen extends StatelessWidget {
             child: const Text("취소"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () {
               vm.deleteNote(note);
               Navigator.pop(context);
@@ -153,8 +178,8 @@ class NoteScreen extends StatelessWidget {
             title: Text("${vm.todoTitle}의 메모"),
             backgroundColor: Colors.deepOrange,
             foregroundColor: Colors.white,
+            elevation: 0,
             actions: [
-              // 검색
               IconButton(
                 icon: const Icon(Icons.search),
                 onPressed: () async {
@@ -165,21 +190,18 @@ class NoteScreen extends StatelessWidget {
                   if (query != null) vm.setSearchQuery(query);
                 },
               ),
-              // 즐겨찾기(고정) 필터 토글
               IconButton(
                 icon: Icon(
                   vm.showOnlyPinned ? Icons.push_pin : Icons.push_pin_outlined,
                 ),
                 onPressed: () => vm.togglePinnedFilter(),
               ),
-              // 보관함 보기 토글
               IconButton(
                 icon: Icon(
                   vm.showArchived ? Icons.archive : Icons.archive_outlined,
                 ),
                 onPressed: () => vm.toggleArchiveFilter(),
               ),
-              // 정렬 메뉴
               PopupMenuButton<SortType>(
                 icon: const Icon(Icons.sort),
                 onSelected: (type) => vm.setSortType(type),
@@ -202,8 +224,8 @@ class NoteScreen extends StatelessWidget {
           ),
           floatingActionButton: FloatingActionButton(
             backgroundColor: Colors.deepOrange,
-            onPressed: () => _showNoteDialog(context),
-            child: const Icon(Icons.add),
+            onPressed: () => _showNoteBottomSheet(context),
+            child: const Icon(Icons.add, size: 28),
           ),
           body: vm.isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -215,13 +237,20 @@ class NoteScreen extends StatelessWidget {
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           )
-              : ListView.builder(
+              : GridView.builder(
             padding: const EdgeInsets.all(12),
+            gridDelegate:
+            const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, // 2열 카드 레이아웃
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.9,
+            ),
             itemCount: vm.notes.length,
             itemBuilder: (context, index) {
               final note = vm.notes[index];
               final dateText =
-              DateFormat('yyyy년 MM월 dd일 HH:mm').format(
+              DateFormat('MM/dd HH:mm').format(
                 DateTime.fromMillisecondsSinceEpoch(
                     note.updatedAt ?? note.createdAt),
               );
@@ -229,86 +258,111 @@ class NoteScreen extends StatelessWidget {
               return Dismissible(
                 key: Key(note.id),
                 background: Container(
-                  color: Colors.red,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.only(left: 20),
-                  child: const Icon(Icons.delete,
-                      color: Colors.white),
+                  child:
+                  const Icon(Icons.delete, color: Colors.white),
                 ),
                 secondaryBackground: Container(
-                  color: Colors.red,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
-                  child: const Icon(Icons.delete,
-                      color: Colors.white),
+                  child:
+                  const Icon(Icons.delete, color: Colors.white),
                 ),
                 confirmDismiss: (_) async {
                   _confirmDelete(context, note);
                   return false;
                 },
-                child: Card(
-                  color: Color(note.color),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Color(note.color),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      )
+                    ],
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(12),
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            note.title.isNotEmpty
-                                ? note.title
-                                : "(제목 없음)",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            note.isPinned
-                                ? Icons.push_pin
-                                : Icons.push_pin_outlined,
-                            color: note.isPinned
-                                ? Colors.deepOrange
-                                : Colors.grey,
-                          ),
-                          onPressed: () => vm.togglePin(note),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            note.isArchived
-                                ? Icons.archive
-                                : Icons.archive_outlined,
-                            color: note.isArchived
-                                ? Colors.blue
-                                : Colors.grey,
-                          ),
-                          onPressed: () => vm.toggleArchive(note),
-                        ),
-                      ],
-                    ),
-                    subtitle: Column(
+                  padding: const EdgeInsets.all(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () =>
+                        _showNoteBottomSheet(context, note: note),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 4),
-                        Text(
-                          note.content,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                note.title.isNotEmpty
+                                    ? note.title
+                                    : "(제목 없음)",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                note.isPinned
+                                    ? Icons.push_pin
+                                    : Icons.push_pin_outlined,
+                                color: note.isPinned
+                                    ? Colors.deepOrange
+                                    : Colors.grey,
+                                size: 20,
+                              ),
+                              onPressed: () => vm.togglePin(note),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "작성/수정: $dateText",
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.grey),
+                        const SizedBox(height: 6),
+                        Expanded(
+                          child: Text(
+                            note.content,
+                            maxLines: 5,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              dateText,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                note.isArchived
+                                    ? Icons.archive
+                                    : Icons.archive_outlined,
+                                color: note.isArchived
+                                    ? Colors.blue
+                                    : Colors.grey,
+                                size: 20,
+                              ),
+                              onPressed: () => vm.toggleArchive(note),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    onTap: () =>
-                        _showNoteDialog(context, note: note),
                   ),
                 ),
               );
