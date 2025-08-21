@@ -124,59 +124,95 @@ class AddScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      // 입력
+                      // 📌 할 일 입력
                       GlassCard(
-                        child: TextFormField(
-                          controller: vm.textController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: '할 일을 입력하세요',
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            hintText: '예: 운동하기, 장보기...',
-                            hintStyle: const TextStyle(color: Colors.white38),
-                            filled: true,
-                            fillColor: Colors.white.withOpacity(0.05),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.edit_note, color: Colors.tealAccent, size: 26),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: vm.textController,
+                                style: const TextStyle(color: Colors.white, fontSize: 16),
+                                decoration: InputDecoration(
+                                  hintText: '할 일을 입력하세요...',
+                                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+// 📌 우선순위 선택
+                      GlassCard(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.flag, color: Colors.amberAccent, size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: vm.selectedPriority,
+                                dropdownColor: Colors.black87,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  labelText: "우선순위",
+                                  labelStyle: TextStyle(color: Colors.white70),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                      value: 'high', child: Text('🔥 높음')),
+                                  DropdownMenuItem(
+                                      value: 'medium', child: Text('🌟 보통')),
+                                  DropdownMenuItem(
+                                      value: 'low', child: Text('🍃 낮음')),
+                                ],
+                                onChanged: vm.setPriority,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+// 📌 마감일 선택
+                      GlassCard(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () => _pickDueDate(context),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_today,
+                                    color: Colors.pinkAccent, size: 22),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("마감일",
+                                          style: TextStyle(
+                                              fontSize: 13, color: Colors.white70)),
+                                      Text(
+                                        vm.formattedDueDate,
+                                        style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.arrow_forward_ios,
+                                    size: 16, color: Colors.white54),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                      // 우선순위
-                      GlassCard(
-                        child: DropdownButtonFormField<String>(
-                          value: vm.selectedPriority,
-                          dropdownColor: Colors.black87,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
-                            labelText: '우선순위 선택',
-                            labelStyle: TextStyle(color: Colors.white70),
-                            border: InputBorder.none,
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'high', child: Text('🔥 높음')),
-                            DropdownMenuItem(
-                                value: 'medium', child: Text('🌟 보통')),
-                            DropdownMenuItem(
-                                value: 'low', child: Text('🍃 낮음')),
-                          ],
-                          onChanged: vm.setPriority,
-                        ),
-                      ),
-                      // 마감일
-                      GlassCard(
-                        child: ListTile(
-                          title: const Text('마감일 선택',
-                              style: TextStyle(color: Colors.white70)),
-                          subtitle: Text(vm.formattedDueDate,
-                              style: const TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.calendar_today,
-                              color: Colors.white70),
-                          onTap: () => _pickDueDate(context),
-                        ),
-                      ),
+
                       Expanded(
                         child: Hero(
                           tag: 'save-hero',
