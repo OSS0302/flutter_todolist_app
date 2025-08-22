@@ -173,6 +173,8 @@ class NoteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<NoteViewModel>(
       builder: (context, vm, child) {
+        final tags = ["all", ...vm.getAllTags()];
+
         return Scaffold(
           appBar: AppBar(
             title: Text("${vm.todoTitle}의 메모"),
@@ -229,144 +231,183 @@ class NoteScreen extends StatelessWidget {
           ),
           body: vm.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : vm.notes.isEmpty
-              ? const Center(
-            child: Text(
-              "메모가 없습니다.\n+ 버튼을 눌러 추가하세요.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          )
-              : GridView.builder(
-            padding: const EdgeInsets.all(12),
-            gridDelegate:
-            const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, // 2열 카드 레이아웃
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.9,
-            ),
-            itemCount: vm.notes.length,
-            itemBuilder: (context, index) {
-              final note = vm.notes[index];
-              final dateText =
-              DateFormat('MM/dd HH:mm').format(
-                DateTime.fromMillisecondsSinceEpoch(
-                    note.updatedAt ?? note.createdAt),
-              );
-
-              return Dismissible(
-                key: Key(note.id),
-                background: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(16),
+              : Column(
+            children: [
+              /// 🔖 태그 필터 영역
+              if (tags.isNotEmpty)
+                SizedBox(
+                  height: 42,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    scrollDirection: Axis.horizontal,
+                    itemBuilder: (context, i) {
+                      final tag = tags[i];
+                      final selected = vm.selectedTag == tag;
+                      return ChoiceChip(
+                        label: Text(tag == "all" ? "전체" : tag),
+                        selected: selected,
+                        onSelected: (_) => vm.setTagFilter(tag),
+                        selectedColor: Colors.deepOrange.shade100,
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemCount: tags.length,
                   ),
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 20),
-                  child:
-                  const Icon(Icons.delete, color: Colors.white),
                 ),
-                secondaryBackground: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(16),
+              /// 📋 메모 리스트
+              Expanded(
+                child: vm.notes.isEmpty
+                    ? const Center(
+                  child: Text(
+                    "메모가 없습니다.\n+ 버튼을 눌러 추가하세요.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 16, color: Colors.grey),
                   ),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  child:
-                  const Icon(Icons.delete, color: Colors.white),
-                ),
-                confirmDismiss: (_) async {
-                  _confirmDelete(context, note);
-                  return false;
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Color(note.color),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
-                      )
-                    ],
-                  ),
+                )
+                    : GridView.builder(
                   padding: const EdgeInsets.all(12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () =>
-                        _showNoteBottomSheet(context, note: note),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                note.title.isNotEmpty
-                                    ? note.title
-                                    : "(제목 없음)",
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                note.isPinned
-                                    ? Icons.push_pin
-                                    : Icons.push_pin_outlined,
-                                color: note.isPinned
-                                    ? Colors.deepOrange
-                                    : Colors.grey,
-                                size: 20,
-                              ),
-                              onPressed: () => vm.togglePin(note),
-                            ),
+                  gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.9,
+                  ),
+                  itemCount: vm.notes.length,
+                  itemBuilder: (context, index) {
+                    final note = vm.notes[index];
+                    final dateText =
+                    DateFormat('MM/dd HH:mm').format(
+                      DateTime.fromMillisecondsSinceEpoch(
+                          note.updatedAt ?? note.createdAt),
+                    );
+
+                    return Dismissible(
+                      key: Key(note.id),
+                      background: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 20),
+                        child: const Icon(Icons.delete,
+                            color: Colors.white),
+                      ),
+                      secondaryBackground: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        child: const Icon(Icons.delete,
+                            color: Colors.white),
+                      ),
+                      confirmDismiss: (_) async {
+                        _confirmDelete(context, note);
+                        return false;
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Color(note.color),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            )
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Expanded(
-                          child: Text(
-                            note.content,
-                            maxLines: 5,
-                            overflow: TextOverflow.ellipsis,
+                        padding: const EdgeInsets.all(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () =>
+                              _showNoteBottomSheet(context,
+                                  note: note),
+                          child: Column(
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      note.title.isNotEmpty
+                                          ? note.title
+                                          : "(제목 없음)",
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow:
+                                      TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      note.isPinned
+                                          ? Icons.push_pin
+                                          : Icons
+                                          .push_pin_outlined,
+                                      color: note.isPinned
+                                          ? Colors.deepOrange
+                                          : Colors.grey,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        vm.togglePin(note),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Expanded(
+                                child: Text(
+                                  note.content,
+                                  maxLines: 5,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment
+                                    .spaceBetween,
+                                children: [
+                                  Text(
+                                    dateText,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      note.isArchived
+                                          ? Icons.archive
+                                          : Icons.archive_outlined,
+                                      color: note.isArchived
+                                          ? Colors.blue
+                                          : Colors.grey,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        vm.toggleArchive(note),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              dateText,
-                              style: const TextStyle(
-                                  fontSize: 12, color: Colors.grey),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                note.isArchived
-                                    ? Icons.archive
-                                    : Icons.archive_outlined,
-                                color: note.isArchived
-                                    ? Colors.blue
-                                    : Colors.grey,
-                                size: 20,
-                              ),
-                              onPressed: () => vm.toggleArchive(note),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ],
           ),
         );
       },

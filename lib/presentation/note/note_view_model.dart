@@ -36,15 +36,25 @@ class NoteViewModel extends ChangeNotifier {
     loadNotes();
   }
 
-  Future<void> loadNotes() async {
+  // 📌 로딩 상태 헬퍼
+  Future<void> _withLoading(Future<void> Function() action) async {
     _isLoading = true;
     notifyListeners();
+    try {
+      await action();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
-    _allNotes = _noteBox.values.where((note) => note.todoId == todoId).toList();
-
-    _applyFilters();
-    _isLoading = false;
-    notifyListeners();
+  Future<void> loadNotes() async {
+    await _withLoading(() async {
+      _allNotes = _noteBox.values
+          .where((note) => note.todoId == todoId)
+          .toList();
+      _applyFilters();
+    });
   }
 
   Future<void> addNote(
@@ -53,22 +63,23 @@ class NoteViewModel extends ChangeNotifier {
         int? color,
         List<String>? tags,
       }) async {
-    final newNote = Note(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      todoId: todoId,
-      title: title,
-      content: content,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      isPinned: false,
-      isArchived: false, // 🆕 추가
-      color: color ?? Colors.orange[50]!.value,
-      tags: tags ?? [],
-    );
+    await _withLoading(() async {
+      final newNote = Note(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        todoId: todoId,
+        title: title,
+        content: content,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        isPinned: false,
+        isArchived: false,
+        color: color ?? Colors.orange[50]!.value,
+        tags: tags ?? [],
+      );
 
-    await _noteBox.put(newNote.id, newNote);
-    _allNotes.add(newNote);
-    _applyFilters();
-    notifyListeners();
+      await _noteBox.put(newNote.id, newNote);
+      _allNotes.add(newNote);
+      _applyFilters();
+    });
   }
 
   Future<void> updateNote(
@@ -80,37 +91,38 @@ class NoteViewModel extends ChangeNotifier {
         bool? isArchived,
         List<String>? tags,
       }) async {
-    final updatedNote = note.copyWith(
-      title: title ?? note.title,
-      content: content,
-      updatedAt: DateTime.now().millisecondsSinceEpoch,
-      color: color ?? note.color,
-      isPinned: isPinned ?? note.isPinned,
-      isArchived: isArchived ?? note.isArchived,
-      tags: tags ?? note.tags,
-    );
+    await _withLoading(() async {
+      final updatedNote = note.copyWith(
+        title: title ?? note.title,
+        content: content,
+        updatedAt: DateTime.now().millisecondsSinceEpoch,
+        color: color ?? note.color,
+        isPinned: isPinned ?? note.isPinned,
+        isArchived: isArchived ?? note.isArchived,
+        tags: tags ?? note.tags,
+      );
 
-    await _noteBox.put(updatedNote.id, updatedNote);
-    final index = _allNotes.indexWhere((n) => n.id == note.id);
-    if (index != -1) {
-      _allNotes[index] = updatedNote;
-      _applyFilters();
-      notifyListeners();
-    }
+      await _noteBox.put(updatedNote.id, updatedNote);
+      final index = _allNotes.indexWhere((n) => n.id == note.id);
+      if (index != -1) {
+        _allNotes[index] = updatedNote;
+        _applyFilters();
+      }
+    });
   }
 
   Future<void> deleteNote(Note note) async {
-    await _noteBox.delete(note.id);
-    _allNotes.removeWhere((n) => n.id == note.id);
-    _applyFilters();
-    notifyListeners();
+    await _withLoading(() async {
+      await _noteBox.delete(note.id);
+      _allNotes.removeWhere((n) => n.id == note.id);
+      _applyFilters();
+    });
   }
 
   void togglePin(Note note) {
     updateNote(note, note.content, isPinned: !(note.isPinned ?? false));
   }
 
-  // 🆕 아카이브 토글
   void toggleArchive(Note note) {
     updateNote(note, note.content, isArchived: !(note.isArchived ?? false));
   }
@@ -141,7 +153,6 @@ class NoteViewModel extends ChangeNotifier {
     return tags.toList();
   }
 
-  // 🆕 필터 토글
   void togglePinnedFilter() {
     _showOnlyPinned = !_showOnlyPinned;
     _applyFilters();
