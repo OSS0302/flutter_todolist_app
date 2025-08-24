@@ -31,6 +31,12 @@ class AddViewModel extends ChangeNotifier {
     return DateUtils.isSameDay(selectedDueDate, DateTime.now());
   }
 
+  bool isOverdue() {
+    if (selectedDueDate == null) return false;
+    final now = DateTime.now();
+    return selectedDueDate!.isBefore(DateTime(now.year, now.month, now.day));
+  }
+
   Future<void> saveTodo() async {
     final trimmed = textController.text.trim();
     if (trimmed.isEmpty) return;
@@ -38,7 +44,7 @@ class AddViewModel extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    await Future.delayed(const Duration(seconds: 1)); // simulate delay
+    await Future.delayed(const Duration(seconds: 1)); // 서버 연동 대기 시뮬레이션
 
     todos.add(Todo(
       title: trimmed,
