@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-
 import 'add_view_model.dart';
 
 class AddScreen extends StatelessWidget {
@@ -38,12 +37,10 @@ class AddScreen extends StatelessWidget {
     final vm = context.read<AddViewModel>();
 
     if (!vm.isInputValid) {
-      showDialog(
-        context: context,
-        builder: (_) => const AlertDialog(
-          title: Text('입력 오류'),
-          content: Text('할 일을 입력해주세요!'),
-          actions: [TextButton(onPressed: null, child: Text('확인'))],
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("❗ 할 일을 입력해주세요!"),
+          backgroundColor: Colors.redAccent,
         ),
       );
       return;
@@ -51,38 +48,23 @@ class AddScreen extends StatelessWidget {
 
     await vm.saveTodo();
 
-    if (vm.isDueToday()) {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('⚠️ 오늘 마감!'),
-          content: const Text('오늘 마감인 할 일을 추가했어요!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                context.pop(context);
-                context.pop(context);
-              },
-              child: const Text('확인'),
-            ),
-          ],
+    // 저장 성공 애니메이션
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          vm.isDueToday()
+              ? "⚠️ 오늘 마감인 할 일이 추가되었습니다!"
+              : "✅ 할 일이 저장되었습니다!",
         ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('저장 완료'),
-          content: const Text('할 일이 저장되었습니다!'),
-          actions: [
-            TextButton(
-              onPressed: () => context.push('/'),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
-    }
+        backgroundColor: vm.isDueToday() ? Colors.orangeAccent : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (context.mounted) context.pop();
   }
 
   @override
@@ -106,6 +88,7 @@ class AddScreen extends StatelessWidget {
           ),
           body: Stack(
             children: [
+              // 🔥 그라데이션 배경 + 블러
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -119,6 +102,7 @@ class AddScreen extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                 child: Container(color: Colors.black.withOpacity(0.2)),
               ),
+
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -126,30 +110,54 @@ class AddScreen extends StatelessWidget {
                     children: [
                       // 📌 할 일 입력
                       GlassCard(
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.edit_note, color: Colors.tealAccent, size: 26),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: vm.textController,
-                                style: const TextStyle(color: Colors.white, fontSize: 16),
-                                decoration: InputDecoration(
-                                  hintText: '할 일을 입력하세요...',
-                                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                                  border: InputBorder.none,
+                            Row(
+                              children: [
+                                const Icon(Icons.edit_note,
+                                    color: Colors.tealAccent, size: 26),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: vm.textController,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 16),
+                                    maxLength: 100,
+                                    decoration: InputDecoration(
+                                      counterText: "",
+                                      hintText: '할 일을 입력하세요...',
+                                      hintStyle: TextStyle(
+                                          color: Colors.white.withOpacity(0.4)),
+                                      border: InputBorder.none,
+                                    ),
+                                    onFieldSubmitted: (_) =>
+                                        FocusScope.of(context).unfocus(),
+                                  ),
                                 ),
+                              ],
+                            ),
+                            Align(
+                              alignment: Alignment.bottomRight,
+                              child: Text(
+                                "${vm.textController.text.length}/100",
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: vm.textController.text.length > 90
+                                        ? Colors.redAccent
+                                        : Colors.white70),
                               ),
                             ),
                           ],
                         ),
                       ),
 
-// 📌 우선순위 선택
+                      // 📌 우선순위 선택
                       GlassCard(
                         child: Row(
                           children: [
-                            const Icon(Icons.flag, color: Colors.amberAccent, size: 24),
+                            const Icon(Icons.flag,
+                                color: Colors.amberAccent, size: 24),
                             const SizedBox(width: 12),
                             Expanded(
                               child: DropdownButtonFormField<String>(
@@ -169,20 +177,32 @@ class AddScreen extends StatelessWidget {
                                   DropdownMenuItem(
                                       value: 'low', child: Text('🍃 낮음')),
                                 ],
-                                onChanged: vm.setPriority,
+                                onChanged: (val) {
+                                  vm.setPriority(val);
+                                  // 간단한 애니메이션 효과
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("우선순위가 '${val ?? ''}'로 변경됨"),
+                                      backgroundColor: Colors.blueGrey,
+                                      duration:
+                                      const Duration(milliseconds: 800),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
                           ],
                         ),
                       ),
 
-// 📌 마감일 선택
+                      // 📌 마감일 선택
                       GlassCard(
                         child: InkWell(
                           borderRadius: BorderRadius.circular(18),
                           onTap: () => _pickDueDate(context),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 14, horizontal: 8),
                             child: Row(
                               children: [
                                 const Icon(Icons.calendar_today,
@@ -190,17 +210,22 @@ class AddScreen extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                     children: [
                                       const Text("마감일",
                                           style: TextStyle(
-                                              fontSize: 13, color: Colors.white70)),
+                                              fontSize: 13,
+                                              color: Colors.white70)),
                                       Text(
                                         vm.formattedDueDate,
-                                        style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: vm.isOverdue()
+                                              ? Colors.redAccent
+                                              : Colors.white,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -213,6 +238,7 @@ class AddScreen extends StatelessWidget {
                         ),
                       ),
 
+                      // 📌 저장 버튼
                       Expanded(
                         child: Hero(
                           tag: 'save-hero',
@@ -220,50 +246,50 @@ class AddScreen extends StatelessWidget {
                             duration: const Duration(milliseconds: 300),
                             child: vm.isLoading
                                 ? Container(
-                                    key: const ValueKey('loading'),
-                                    height: 56,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.lightGreenAccent
-                                          .withOpacity(0.85),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.black),
-                                      strokeWidth: 3,
-                                    ),
-                                  )
+                              key: const ValueKey('loading'),
+                              height: 56,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.lightGreenAccent
+                                    .withOpacity(0.85),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              alignment: Alignment.center,
+                              child: const CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.black),
+                                strokeWidth: 3,
+                              ),
+                            )
                                 : SizedBox(
-                                    key: const ValueKey('button'),
-                                    width: double.infinity,
-                                    height: 56,
-                                    child: ElevatedButton.icon(
-                                      onPressed:
-                                          vm.isInputValid && !vm.isLoading
-                                              ? () => _save(context)
-                                              : null,
-                                      icon: const Icon(Icons.save),
-                                      label: const Text('저장하기'),
-                                      style: ElevatedButton.styleFrom(
-                                        textStyle: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold),
-                                        backgroundColor: vm.isInputValid
-                                            ? Colors.lightGreenAccent
-                                                .withOpacity(0.85)
-                                            : Colors.grey.shade700,
-                                        foregroundColor: Colors.black,
-                                        disabledBackgroundColor:
-                                            Colors.grey.shade800,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                        ),
-                                      ),
-                                    ),
+                              key: const ValueKey('button'),
+                              width: double.infinity,
+                              height: 56,
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                vm.isInputValid && !vm.isLoading
+                                    ? () => _save(context)
+                                    : null,
+                                icon: const Icon(Icons.save),
+                                label: const Text('저장하기'),
+                                style: ElevatedButton.styleFrom(
+                                  textStyle: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
+                                  backgroundColor: vm.isInputValid
+                                      ? Colors.lightGreenAccent
+                                      .withOpacity(0.85)
+                                      : Colors.grey.shade700,
+                                  foregroundColor: Colors.black,
+                                  disabledBackgroundColor:
+                                  Colors.grey.shade800,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                    BorderRadius.circular(16),
                                   ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
