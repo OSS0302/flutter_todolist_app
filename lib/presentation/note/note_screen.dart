@@ -16,125 +16,165 @@ class NoteScreen extends StatelessWidget {
     required this.todoTitle,
   }) : super(key: key);
 
-  /// 📌 메모 추가/수정 BottomSheet
   void _showNoteBottomSheet(BuildContext context, {Note? note}) {
     final vm = context.read<NoteViewModel>();
     final titleController = TextEditingController(text: note?.title ?? '');
     final contentController = TextEditingController(text: note?.content ?? '');
     Color selectedColor = note != null ? Color(note.color) : Colors.orange[100]!;
 
-    showModalBottomSheet(
+    showGeneralDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          child: StatefulBuilder(
-            builder: (context, setState) {
-              return Wrap(
-                children: [
-                  Text(
-                    note == null ? "새 메모" : "메모 수정",
-                    style: const TextStyle(
-                        fontSize: 20, fontWeight: FontWeight.bold),
+      barrierDismissible: true,
+      barrierLabel: "메모 작성 해주세요.",
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            color: Colors.transparent,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return AnimatedPadding(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                    left: 16,
+                    right: 16,
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: titleController,
-                    decoration: const InputDecoration(
-                      hintText: "제목",
-                      border: InputBorder.none,
-                      hintStyle: TextStyle(color: Colors.grey),
+                  child: Container(
+                    width: MediaQuery.of(context).size.width,
+                    height: MediaQuery.of(context).size.height * 0.8,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  TextField(
-                    controller: contentController,
-                    maxLines: null,
-                    decoration: const InputDecoration(
-                      hintText: "메모 작성...",
-                      border: InputBorder.none,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Text("색상: "),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20)),
-                              title: const Text("색상 선택"),
-                              content: BlockPicker(
-                                pickerColor: selectedColor,
-                                onColorChanged: (color) {
-                                  setState(() => selectedColor = color);
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.max,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            note == null ? "새 메모" : "메모 수정",
+                            style: const TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: titleController,
+                            decoration: const InputDecoration(
+                              hintText: "제목을 입력해 주세요",
+                              border: InputBorder.none,
+                              hintStyle: TextStyle(color: Colors.grey),
+                            ),
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w600),
+                          ),
+                          TextField(
+                            controller: contentController,
+                            maxLines: null,
+                            decoration: const InputDecoration(
+                              hintText: "메모 작성 해주세요.",
+                              border: InputBorder.none,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              const Text("색상: "),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                          BorderRadius.circular(20)),
+                                      title: const Text("색상 선택"),
+                                      content: BlockPicker(
+                                        pickerColor: selectedColor,
+                                        onColorChanged: (color) {
+                                          setState(() => selectedColor = color);
+                                          Navigator.pop(context);
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: CircleAvatar(
+                                  backgroundColor: selectedColor,
+                                  radius: 14,
+                                ),
+                              ),
+                              const Spacer(),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.deepOrange,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  if (contentController.text.trim().isEmpty) {
+                                    return;
+                                  }
+                                  if (note == null) {
+                                    vm.addNote(
+                                      contentController.text.trim(),
+                                      title: titleController.text.trim(),
+                                      color: selectedColor.value,
+                                    );
+                                  } else {
+                                    vm.updateNote(
+                                      note,
+                                      contentController.text.trim(),
+                                      title: titleController.text.trim(),
+                                      color: selectedColor.value,
+                                    );
+                                  }
                                   Navigator.pop(context);
                                 },
+                                icon: const Icon(Icons.save),
+                                label: const Text("저장"),
                               ),
-                            ),
-                          );
-                        },
-                        child: CircleAvatar(
-                          backgroundColor: selectedColor,
-                          radius: 14,
-                        ),
-                      ),
-                      const Spacer(),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepOrange,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            ],
                           ),
-                        ),
-                        onPressed: () {
-                          if (contentController.text.trim().isEmpty) return;
-                          if (note == null) {
-                            vm.addNote(
-                              contentController.text.trim(),
-                              title: titleController.text.trim(),
-                              color: selectedColor.value,
-                            );
-                          } else {
-                            vm.updateNote(
-                              note,
-                              contentController.text.trim(),
-                              title: titleController.text.trim(),
-                              color: selectedColor.value,
-                            );
-                          }
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.save),
-                        label: const Text("저장"),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                ],
-              );
-            },
+                );
+              },
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim, _, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: FadeTransition(
+            opacity: anim,
+            child: child,
           ),
         );
       },
     );
   }
+
 
   /// 삭제 확인
   void _confirmDelete(BuildContext context, Note note) {
@@ -225,7 +265,7 @@ class NoteScreen extends StatelessWidget {
             ],
           ),
 
-          /// 🔥 확장형 FAB로 교체
+          /// 🔥 FAB
           floatingActionButton: SpeedDial(
             animatedIcon: AnimatedIcons.menu_close,
             backgroundColor: Colors.deepOrange,
@@ -405,7 +445,8 @@ class NoteScreen extends StatelessWidget {
                               const SizedBox(height: 6),
                               Row(
                                 mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                                MainAxisAlignment
+                                    .spaceBetween,
                                 children: [
                                   Text(
                                     dateText,
