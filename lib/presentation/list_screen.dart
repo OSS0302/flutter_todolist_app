@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart'; // ✅ SpeedDial 라이브러리
 import 'package:provider/provider.dart';
 import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/note/note_screen.dart';
@@ -67,9 +68,10 @@ class _ListScreenState extends State<ListScreen> {
             child: Text(
               'TodoList',
               style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22),
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
             ),
           ),
         ),
@@ -80,8 +82,7 @@ class _ListScreenState extends State<ListScreen> {
           IconButton(
             icon: Icon(
               viewModel.showOnlyFavorites ? Icons.star : Icons.star_border,
-              color:
-              viewModel.showOnlyFavorites ? Colors.amber : Colors.white38,
+              color: viewModel.showOnlyFavorites ? Colors.amber : Colors.white38,
             ),
             onPressed: () => viewModel.toggleFavoriteFilter(),
           ),
@@ -91,7 +92,12 @@ class _ListScreenState extends State<ListScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const NoteScreen(todoId: '', todoTitle: '',)), // ✅ 이동
+                MaterialPageRoute(
+                  builder: (_) => const NoteScreen(
+                    todoId: '',
+                    todoTitle: '',
+                  ),
+                ),
               );
             },
           ),
@@ -198,8 +204,7 @@ class _ListScreenState extends State<ListScreen> {
                     controller: _scrollController,
                     itemCount: viewModel.filteredTodos.length,
                     itemBuilder: (context, index) {
-                      final todo =
-                      viewModel.filteredTodos[index];
+                      final todo = viewModel.filteredTodos[index];
                       final date =
                       DateTime.fromMillisecondsSinceEpoch(
                           todo.dateTime);
@@ -263,26 +268,55 @@ class _ListScreenState extends State<ListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: SpeedDial(
         backgroundColor: Colors.blue,
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            PageRouteBuilder(
-              transitionDuration: const Duration(milliseconds: 500),
-              pageBuilder: (context, animation, secondaryAnimation) =>
-              const AddScreen(),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                final curvedAnimation = CurvedAnimation(
-                    parent: animation, curve: Curves.easeInOut);
-                return FadeTransition(opacity: curvedAnimation, child: child);
-              },
-            ),
-          );
-          viewModel.refresh();
-        },
-        child: const Icon(Icons.add, color: Colors.black87),
+        foregroundColor: Colors.black87,
+        icon: Icons.add,
+        activeIcon: Icons.close,
+        spacing: 10,
+        children: [
+          SpeedDialChild(
+            child: const Icon(Icons.playlist_add),
+            backgroundColor: Colors.lightBlue,
+            label: '할 일 추가',
+            labelStyle: const TextStyle(fontSize: 16),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                PageRouteBuilder(
+                  transitionDuration: const Duration(milliseconds: 500),
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                  const AddScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    final curvedAnimation = CurvedAnimation(
+                        parent: animation, curve: Curves.easeInOut);
+                    return FadeTransition(
+                        opacity: curvedAnimation, child: child);
+                  },
+                ),
+              );
+              viewModel.refresh();
+            },
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.note),
+            backgroundColor: Colors.orange,
+            label: '메모장',
+            labelStyle: const TextStyle(fontSize: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NoteScreen(
+                    todoId: '',
+                    todoTitle: '',
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
