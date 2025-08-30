@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart'; // ✅ SpeedDial 라이브러리
 import 'package:provider/provider.dart';
 import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/note/note_screen.dart';
@@ -15,6 +16,7 @@ class ListScreen extends StatefulWidget {
 
 class _ListScreenState extends State<ListScreen> {
   final ScrollController _scrollController = ScrollController();
+  bool isDarkMode = true; // ✅ 다크모드 상태
 
   @override
   void initState() {
@@ -52,13 +54,35 @@ class _ListScreenState extends State<ListScreen> {
         false;
   }
 
+  Future<bool> _showDeleteAllConfirmDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('전체 삭제'),
+        content: const Text('모든 할 일을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    ) ??
+        false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<ListViewModel>();
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: Colors.black,
+      backgroundColor: isDarkMode ? Colors.black : Colors.white,
       appBar: AppBar(
         title: const Hero(
           tag: 'app_title',
@@ -67,42 +91,25 @@ class _ListScreenState extends State<ListScreen> {
             child: Text(
               'TodoList',
               style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22),
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
             ),
           ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(
-              viewModel.showOnlyFavorites ? Icons.star : Icons.star_border,
-              color:
-              viewModel.showOnlyFavorites ? Colors.amber : Colors.white38,
-            ),
-            onPressed: () => viewModel.toggleFavoriteFilter(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.note, color: Colors.white), // ✅ 노트 아이콘
-            tooltip: '메모장',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NoteScreen(todoId: '', todoTitle: '',)), // ✅ 이동
-              );
-            },
-          ),
-        ],
       ),
       body: Stack(
         children: [
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0F2027), Color(0xFF2C5364)],
+                colors: isDarkMode
+                    ? [const Color(0xFF0F2027), const Color(0xFF2C5364)]
+                    : [Colors.blue.shade100, Colors.white],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -110,7 +117,11 @@ class _ListScreenState extends State<ListScreen> {
           ),
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-            child: Container(color: Colors.blue.withOpacity(0.2)),
+            child: Container(
+              color: isDarkMode
+                  ? Colors.blue.withOpacity(0.2)
+                  : Colors.white.withOpacity(0.1),
+            ),
           ),
           SafeArea(
             child: viewModel.isLoading
@@ -123,14 +134,22 @@ class _ListScreenState extends State<ListScreen> {
                   child: TextField(
                     onChanged: (value) =>
                         viewModel.setSearchKeyword(value),
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(
+                      color: isDarkMode ? Colors.white : Colors.black,
+                    ),
                     decoration: InputDecoration(
                       hintText: '할 일을 검색하세요...',
-                      hintStyle: const TextStyle(color: Colors.white),
+                      hintStyle: TextStyle(
+                        color:
+                        isDarkMode ? Colors.white54 : Colors.black45,
+                      ),
                       filled: true,
-                      fillColor: Colors.white10,
-                      prefixIcon: const Icon(Icons.search,
-                          color: Colors.white54),
+                      fillColor: isDarkMode
+                          ? Colors.white10
+                          : Colors.black.withOpacity(0.05),
+                      prefixIcon: Icon(Icons.search,
+                          color:
+                          isDarkMode ? Colors.white54 : Colors.black54),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -145,8 +164,7 @@ class _ListScreenState extends State<ListScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       ChoiceChip(
-                        label: const Text('전체',
-                            style: TextStyle(color: Colors.black)),
+                        label: const Text('전체'),
                         selected:
                         viewModel.filterStatus == FilterStatus.all,
                         selectedColor: Colors.blue,
@@ -154,8 +172,7 @@ class _ListScreenState extends State<ListScreen> {
                             .setFilterStatus(FilterStatus.all),
                       ),
                       ChoiceChip(
-                        label: const Text('완료',
-                            style: TextStyle(color: Colors.black)),
+                        label: const Text('완료'),
                         selected:
                         viewModel.filterStatus == FilterStatus.done,
                         selectedColor: Colors.green,
@@ -163,8 +180,7 @@ class _ListScreenState extends State<ListScreen> {
                             .setFilterStatus(FilterStatus.done),
                       ),
                       ChoiceChip(
-                        label: const Text('미완료',
-                            style: TextStyle(color: Colors.black)),
+                        label: const Text('미완료'),
                         selected: viewModel.filterStatus ==
                             FilterStatus.notDone,
                         selectedColor: Colors.redAccent,
@@ -198,8 +214,7 @@ class _ListScreenState extends State<ListScreen> {
                     controller: _scrollController,
                     itemCount: viewModel.filteredTodos.length,
                     itemBuilder: (context, index) {
-                      final todo =
-                      viewModel.filteredTodos[index];
+                      final todo = viewModel.filteredTodos[index];
                       final date =
                       DateTime.fromMillisecondsSinceEpoch(
                           todo.dateTime);
@@ -263,26 +278,88 @@ class _ListScreenState extends State<ListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: SpeedDial(
         backgroundColor: Colors.blue,
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            PageRouteBuilder(
-              transitionDuration: const Duration(milliseconds: 500),
-              pageBuilder: (context, animation, secondaryAnimation) =>
-              const AddScreen(),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                final curvedAnimation = CurvedAnimation(
-                    parent: animation, curve: Curves.easeInOut);
-                return FadeTransition(opacity: curvedAnimation, child: child);
-              },
+        foregroundColor: Colors.black87,
+        icon: Icons.add,
+        activeIcon: Icons.close,
+        spacing: 10,
+        children: [
+          SpeedDialChild(
+            child: const Icon(Icons.playlist_add),
+            backgroundColor: Colors.lightBlue,
+            label: '할 일 추가',
+            onTap: () async {
+              await Navigator.push(
+                context,
+                PageRouteBuilder(
+                  transitionDuration: const Duration(milliseconds: 500),
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                  const AddScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    final curvedAnimation = CurvedAnimation(
+                        parent: animation, curve: Curves.easeInOut);
+                    return FadeTransition(
+                        opacity: curvedAnimation, child: child);
+                  },
+                ),
+              );
+              viewModel.refresh();
+            },
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.note),
+            backgroundColor: Colors.orange,
+            label: '메모장',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NoteScreen(
+                    todoId: '',
+                    todoTitle: '',
+                  ),
+                ),
+              );
+            },
+          ),
+          SpeedDialChild(
+            child: Icon(
+                viewModel.showOnlyFavorites
+                    ? Icons.star
+                    : Icons.star_border,
+                color: Colors.yellow),
+            backgroundColor: Colors.amber,
+            label: '즐겨찾기 필터',
+            onTap: () => viewModel.toggleFavoriteFilter(),
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.delete_forever),
+            backgroundColor: Colors.redAccent,
+            label: '전체 삭제',
+            onTap: () async {
+              final shouldDeleteAll =
+              await _showDeleteAllConfirmDialog(context);
+              if (shouldDeleteAll) {
+                viewModel.clearAllTodos();
+              }
+            },
+          ),
+          SpeedDialChild(
+            child: Icon(
+              isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: Colors.white,
             ),
-          );
-          viewModel.refresh();
-        },
-        child: const Icon(Icons.add, color: Colors.black87),
+            backgroundColor: Colors.purple,
+            label: '다크모드 전환',
+            onTap: () {
+              setState(() {
+                isDarkMode = !isDarkMode;
+              });
+            },
+          ),
+        ],
       ),
     );
   }
