@@ -107,4 +107,9 @@ class ListViewModel extends ChangeNotifier {
   Future<void> loadTodos() async {
     await fetchTodos();
   }
+  Future<void> clearAllTodos() async {
+    await _todoBox.clear();  // Hive Box 전체 삭제
+    _todos.clear();          // 메모리에서도 삭제
+    notifyListeners();       // UI 갱신
+  }
 }
