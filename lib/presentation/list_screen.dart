@@ -164,10 +164,14 @@ class _ListScreenState extends State<ListScreen> {
         children: [
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDarkMode
-                    ? [const Color(0xFF0F2027), const Color(0xFF2C5364)]
-                    : [Colors.blue.shade100, Colors.white],
+              gradient: isDarkMode
+                  ? const LinearGradient(
+                colors: [Colors.black, Colors.black87, Colors.black54],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+                  : LinearGradient(
+                colors: [Colors.blue.shade100, Colors.white],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -177,7 +181,7 @@ class _ListScreenState extends State<ListScreen> {
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
             child: Container(
               color: isDarkMode
-                  ? Colors.blue.withOpacity(0.2)
+                  ? Colors.black.withOpacity(0.3)
                   : Colors.white.withOpacity(0.1),
             ),
           ),
