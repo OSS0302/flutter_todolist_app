@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart'; // ✅ SpeedDial 라이브러리
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:provider/provider.dart';
 import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/note/note_screen.dart';
@@ -16,7 +16,7 @@ class ListScreen extends StatefulWidget {
 
 class _ListScreenState extends State<ListScreen> {
   final ScrollController _scrollController = ScrollController();
-  bool isDarkMode = true; // ✅ 다크모드 상태
+  bool isDarkMode = true;
 
   @override
   void initState() {
@@ -74,6 +74,64 @@ class _ListScreenState extends State<ListScreen> {
       ),
     ) ??
         false;
+  }
+
+  void _showSortOptions(BuildContext context, ListViewModel viewModel) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Wrap(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.star, color: Colors.amber),
+            title: const Text('즐겨찾기 우선'),
+            onTap: () {
+              Navigator.pop(context);
+              viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
+              viewModel.notifyListeners();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.access_time, color: Colors.blue),
+            title: const Text('마감일순'),
+            onTap: () {
+              Navigator.pop(context);
+              viewModel.todos.sort((a, b) {
+                return (a.dueDate ?? DateTime.now())
+                    .compareTo(b.dueDate ?? DateTime.now());
+              });
+              viewModel.notifyListeners();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.done_all, color: Colors.green),
+            title: const Text('완료 항목 우선'),
+            onTap: () {
+              Navigator.pop(context);
+              viewModel.todos.sort((a, b) {
+                return b.isDone ? 1 : -1;
+              });
+              viewModel.notifyListeners();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: "TodoList Pro",
+      applicationVersion: "v2.0.1",
+      applicationIcon: const Icon(Icons.check_circle, color: Colors.blue),
+      children: [
+        const Text("세련된 Flutter Todo 앱입니다."),
+      ],
+    );
   }
 
   @override
@@ -279,11 +337,11 @@ class _ListScreenState extends State<ListScreen> {
         ],
       ),
       floatingActionButton: SpeedDial(
+        animatedIcon: AnimatedIcons.menu_close,
         backgroundColor: Colors.blue,
-        foregroundColor: Colors.black87,
-        icon: Icons.add,
-        activeIcon: Icons.close,
+        foregroundColor: Colors.white,
         spacing: 10,
+        spaceBetweenChildren: 8,
         children: [
           SpeedDialChild(
             child: const Icon(Icons.playlist_add),
@@ -309,6 +367,12 @@ class _ListScreenState extends State<ListScreen> {
             },
           ),
           SpeedDialChild(
+            child: const Icon(Icons.sort),
+            backgroundColor: Colors.teal,
+            label: '정렬 옵션',
+            onTap: () => _showSortOptions(context, viewModel),
+          ),
+          SpeedDialChild(
             child: const Icon(Icons.note),
             backgroundColor: Colors.orange,
             label: '메모장',
@@ -326,10 +390,11 @@ class _ListScreenState extends State<ListScreen> {
           ),
           SpeedDialChild(
             child: Icon(
-                viewModel.showOnlyFavorites
-                    ? Icons.star
-                    : Icons.star_border,
-                color: Colors.yellow),
+              viewModel.showOnlyFavorites
+                  ? Icons.star
+                  : Icons.star_border,
+              color: Colors.yellow,
+            ),
             backgroundColor: Colors.amber,
             label: '즐겨찾기 필터',
             onTap: () => viewModel.toggleFavoriteFilter(),
@@ -358,6 +423,12 @@ class _ListScreenState extends State<ListScreen> {
                 isDarkMode = !isDarkMode;
               });
             },
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.info_outline),
+            backgroundColor: Colors.indigo,
+            label: '앱 정보',
+            onTap: () => _showAboutDialog(context),
           ),
         ],
       ),
