@@ -16,7 +16,7 @@ class ListScreen extends StatefulWidget {
 
 class _ListScreenState extends State<ListScreen> {
   final ScrollController _scrollController = ScrollController();
-  bool isDarkMode = true;
+  bool isDarkMode = true; // 다크모드 상태
 
   @override
   void initState() {
@@ -36,17 +36,23 @@ class _ListScreenState extends State<ListScreen> {
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('삭제 확인'),
-        content: const Text('정말 이 항목을 삭제하시겠습니까?'),
+        backgroundColor: isDarkMode ? Colors.black87 : Colors.white,
+        title: Text(
+          '삭제 확인',
+          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+        ),
+        content: Text(
+          '정말 이 항목을 삭제하시겠습니까?',
+          style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
+            child: Text('취소', style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('삭제'),
+            child: Text('삭제', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -58,17 +64,23 @@ class _ListScreenState extends State<ListScreen> {
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('전체 삭제'),
-        content: const Text('모든 할 일을 삭제하시겠습니까?'),
+        backgroundColor: isDarkMode ? Colors.black87 : Colors.white,
+        title: Text(
+          '전체 삭제',
+          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+        ),
+        content: Text(
+          '모든 할 일을 삭제하시겠습니까?',
+          style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
+            child: Text('취소', style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('삭제'),
+            child: Text('삭제', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -79,7 +91,7 @@ class _ListScreenState extends State<ListScreen> {
   void _showSortOptions(BuildContext context, ListViewModel viewModel) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: isDarkMode ? Colors.black87 : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -87,7 +99,8 @@ class _ListScreenState extends State<ListScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.star, color: Colors.amber),
-            title: const Text('즐겨찾기 우선'),
+            title: Text('즐겨찾기 우선',
+                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
             onTap: () {
               Navigator.pop(context);
               viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
@@ -96,7 +109,8 @@ class _ListScreenState extends State<ListScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.access_time, color: Colors.blue),
-            title: const Text('마감일순'),
+            title: Text('마감일순',
+                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
             onTap: () {
               Navigator.pop(context);
               viewModel.todos.sort((a, b) {
@@ -108,7 +122,8 @@ class _ListScreenState extends State<ListScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.done_all, color: Colors.green),
-            title: const Text('완료 항목 우선'),
+            title: Text('완료 항목 우선',
+                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
             onTap: () {
               Navigator.pop(context);
               viewModel.todos.sort((a, b) {
@@ -129,7 +144,10 @@ class _ListScreenState extends State<ListScreen> {
       applicationVersion: "v2.0.1",
       applicationIcon: const Icon(Icons.check_circle, color: Colors.blue),
       children: [
-        const Text("세련된 Flutter Todo 앱입니다."),
+        Text(
+          "세련된 Flutter Todo 앱입니다.",
+          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+        ),
       ],
     );
   }
@@ -142,14 +160,14 @@ class _ListScreenState extends State<ListScreen> {
       extendBodyBehindAppBar: true,
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
       appBar: AppBar(
-        title: const Hero(
+        title: Hero(
           tag: 'app_title',
           child: Material(
             color: Colors.transparent,
             child: Text(
               'TodoList',
               style: TextStyle(
-                color: Colors.blue,
+                color: isDarkMode ? Colors.white : Colors.blue,
                 fontWeight: FontWeight.bold,
                 fontSize: 22,
               ),
@@ -210,8 +228,9 @@ class _ListScreenState extends State<ListScreen> {
                           ? Colors.white10
                           : Colors.black.withOpacity(0.05),
                       prefixIcon: Icon(Icons.search,
-                          color:
-                          isDarkMode ? Colors.white54 : Colors.black54),
+                          color: isDarkMode
+                              ? Colors.white54
+                              : Colors.black54),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -226,23 +245,35 @@ class _ListScreenState extends State<ListScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       ChoiceChip(
-                        label: const Text('전체'),
+                        label: Text('전체',
+                            style: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : Colors.black)),
                         selected:
                         viewModel.filterStatus == FilterStatus.all,
                         selectedColor: Colors.blue,
-                        onSelected: (_) => viewModel
-                            .setFilterStatus(FilterStatus.all),
+                        onSelected: (_) =>
+                            viewModel.setFilterStatus(FilterStatus.all),
                       ),
                       ChoiceChip(
-                        label: const Text('완료'),
+                        label: Text('완료',
+                            style: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : Colors.black)),
                         selected:
                         viewModel.filterStatus == FilterStatus.done,
                         selectedColor: Colors.green,
-                        onSelected: (_) => viewModel
-                            .setFilterStatus(FilterStatus.done),
+                        onSelected: (_) =>
+                            viewModel.setFilterStatus(FilterStatus.done),
                       ),
                       ChoiceChip(
-                        label: const Text('미완료'),
+                        label: Text('미완료',
+                            style: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : Colors.black)),
                         selected: viewModel.filterStatus ==
                             FilterStatus.notDone,
                         selectedColor: Colors.redAccent,
@@ -265,18 +296,22 @@ class _ListScreenState extends State<ListScreen> {
                 const SizedBox(height: 12),
                 Expanded(
                   child: viewModel.filteredTodos.isEmpty
-                      ? const Center(
+                      ? Center(
                     child: Text(
                       '할 일이 없습니다.',
                       style: TextStyle(
-                          color: Colors.blue, fontSize: 18),
+                          color: isDarkMode
+                              ? Colors.white
+                              : Colors.blue,
+                          fontSize: 18),
                     ),
                   )
                       : ListView.builder(
                     controller: _scrollController,
                     itemCount: viewModel.filteredTodos.length,
                     itemBuilder: (context, index) {
-                      final todo = viewModel.filteredTodos[index];
+                      final todo =
+                      viewModel.filteredTodos[index];
                       final date =
                       DateTime.fromMillisecondsSinceEpoch(
                           todo.dateTime);
@@ -317,9 +352,10 @@ class _ListScreenState extends State<ListScreen> {
                             child: const Icon(Icons.delete,
                                 color: Colors.redAccent),
                           )
-                              : const Icon(
-                              Icons.arrow_forward_ios,
-                              color: Colors.white54),
+                              : Icon(Icons.arrow_forward_ios,
+                              color: isDarkMode
+                                  ? Colors.white54
+                                  : Colors.black54),
                           onTapCallBack: (todo) =>
                               viewModel.toggleDone(todo),
                           onDelete: (todo) async {
