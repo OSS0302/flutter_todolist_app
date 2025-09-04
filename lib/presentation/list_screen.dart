@@ -29,7 +29,6 @@ class _ListScreenState extends State<ListScreen>
       context.read<ListViewModel>().loadTodos();
     });
 
-    // 화면 전체 Fade-In 애니메이션
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -55,17 +54,23 @@ class _ListScreenState extends State<ListScreen>
           curve: Curves.easeInOutBack,
         ),
         child: AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('삭제 확인'),
-          content: const Text('정말 이 항목을 삭제하시겠습니까?'),
+          backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
+          title: Text('삭제 확인',
+              style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black)),
+          content: Text('정말 이 항목을 삭제하시겠습니까?',
+              style: TextStyle(
+                  color: isDarkMode ? Colors.white70 : Colors.black87)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('취소'),
+              child: Text('취소',
+                  style: TextStyle(
+                      color: isDarkMode ? Colors.white : Colors.black)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제'),
+              child: const Text('삭제', style: TextStyle(color: Colors.red)),
             ),
           ],
         ),
@@ -83,17 +88,23 @@ class _ListScreenState extends State<ListScreen>
           curve: Curves.easeInOutBack,
         ),
         child: AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('전체 삭제'),
-          content: const Text('모든 할 일을 삭제하시겠습니까?'),
+          backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
+          title: Text('전체 삭제',
+              style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black)),
+          content: Text('모든 할 일을 삭제하시겠습니까?',
+              style: TextStyle(
+                  color: isDarkMode ? Colors.white70 : Colors.black87)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('취소'),
+              child: Text('취소',
+                  style: TextStyle(
+                      color: isDarkMode ? Colors.white : Colors.black)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제'),
+              child: const Text('삭제', style: TextStyle(color: Colors.red)),
             ),
           ],
         ),
@@ -105,19 +116,19 @@ class _ListScreenState extends State<ListScreen>
   void _showSortOptions(BuildContext context, ListViewModel viewModel) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => AnimatedPadding(
         duration: const Duration(milliseconds: 300),
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Wrap(
           children: [
             ListTile(
               leading: const Icon(Icons.star, color: Colors.amber),
-              title: const Text('즐겨찾기 우선'),
+              title: Text('즐겨찾기 우선',
+                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
               onTap: () {
                 Navigator.pop(context);
                 viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
@@ -126,7 +137,8 @@ class _ListScreenState extends State<ListScreen>
             ),
             ListTile(
               leading: const Icon(Icons.access_time, color: Colors.blue),
-              title: const Text('마감일순'),
+              title: Text('마감일순',
+                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
               onTap: () {
                 Navigator.pop(context);
                 viewModel.todos.sort((a, b) {
@@ -138,7 +150,8 @@ class _ListScreenState extends State<ListScreen>
             ),
             ListTile(
               leading: const Icon(Icons.done_all, color: Colors.green),
-              title: const Text('완료 항목 우선'),
+              title: Text('완료 항목 우선',
+                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
               onTap: () {
                 Navigator.pop(context);
                 viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
@@ -158,7 +171,8 @@ class _ListScreenState extends State<ListScreen>
       applicationVersion: "v2.0.1",
       applicationIcon: const Icon(Icons.check_circle, color: Colors.blue),
       children: [
-        const Text("세련된 Flutter Todo 앱입니다."),
+        Text("세련된 Flutter Todo 앱입니다.",
+            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
       ],
     );
   }
@@ -171,14 +185,14 @@ class _ListScreenState extends State<ListScreen>
       extendBodyBehindAppBar: true,
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
       appBar: AppBar(
-        title: const Hero(
+        title: Hero(
           tag: 'app_title',
           child: Material(
             color: Colors.transparent,
             child: Text(
               'TodoList',
               style: TextStyle(
-                color: Colors.blue,
+                color: isDarkMode ? Colors.white : Colors.black,
                 fontWeight: FontWeight.bold,
                 fontSize: 22,
               ),
@@ -216,7 +230,7 @@ class _ListScreenState extends State<ListScreen>
                   ? const Center(child: CircularProgressIndicator())
                   : Column(
                 children: [
-                  // 검색창 애니메이션
+                  // 검색창
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 400),
                     curve: Curves.easeInOut,
@@ -250,7 +264,7 @@ class _ListScreenState extends State<ListScreen>
                       ),
                     ),
                   ),
-                  // 필터 선택
+                  // 필터
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 400),
                     transitionBuilder: (child, animation) =>
@@ -264,6 +278,10 @@ class _ListScreenState extends State<ListScreen>
                         children: [
                           ChoiceChip(
                             label: const Text('전체'),
+                            labelStyle: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : Colors.black),
                             selected: viewModel.filterStatus ==
                                 FilterStatus.all,
                             selectedColor: Colors.blue,
@@ -272,6 +290,10 @@ class _ListScreenState extends State<ListScreen>
                           ),
                           ChoiceChip(
                             label: const Text('완료'),
+                            labelStyle: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : Colors.black),
                             selected: viewModel.filterStatus ==
                                 FilterStatus.done,
                             selectedColor: Colors.green,
@@ -280,6 +302,10 @@ class _ListScreenState extends State<ListScreen>
                           ),
                           ChoiceChip(
                             label: const Text('미완료'),
+                            labelStyle: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : Colors.black),
                             selected: viewModel.filterStatus ==
                                 FilterStatus.notDone,
                             selectedColor: Colors.redAccent,
@@ -305,12 +331,15 @@ class _ListScreenState extends State<ListScreen>
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 500),
                       child: viewModel.filteredTodos.isEmpty
-                          ? const Center(
-                        key: ValueKey("empty"),
+                          ? Center(
+                        key: const ValueKey("empty"),
                         child: Text(
                           '할 일이 없습니다.',
                           style: TextStyle(
-                              color: Colors.blue, fontSize: 18),
+                              color: isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
+                              fontSize: 18),
                         ),
                       )
                           : ListView.builder(
@@ -347,7 +376,8 @@ class _ListScreenState extends State<ListScreen>
                               onDismissed: (_) =>
                                   viewModel.deleteTodo(todo),
                               background: Container(
-                                alignment: Alignment.centerRight,
+                                alignment:
+                                Alignment.centerRight,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 20),
                                 color: Colors.redAccent,
@@ -373,7 +403,8 @@ class _ListScreenState extends State<ListScreen>
                                           context);
                                       if (shouldDelete) {
                                         await viewModel
-                                            .deleteTodo(todo);
+                                            .deleteTodo(
+                                            todo);
                                       }
                                     },
                                     child: const Icon(
@@ -381,9 +412,12 @@ class _ListScreenState extends State<ListScreen>
                                         color: Colors
                                             .redAccent),
                                   )
-                                      : const Icon(
-                                      Icons.arrow_forward_ios,
-                                      color: Colors.white54),
+                                      : Icon(
+                                      Icons
+                                          .arrow_forward_ios,
+                                      color: isDarkMode
+                                          ? Colors.white54
+                                          : Colors.black54),
                                 ),
                                 onTapCallBack: (todo) =>
                                     viewModel.toggleDone(todo),
@@ -422,6 +456,8 @@ class _ListScreenState extends State<ListScreen>
               child: const Icon(Icons.playlist_add),
               backgroundColor: Colors.lightBlue,
               label: '할 일 추가',
+              labelStyle:
+              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
               onTap: () async {
                 await Navigator.push(
                   context,
@@ -445,12 +481,16 @@ class _ListScreenState extends State<ListScreen>
               child: const Icon(Icons.sort),
               backgroundColor: Colors.teal,
               label: '정렬 옵션',
+              labelStyle:
+              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
               onTap: () => _showSortOptions(context, viewModel),
             ),
             SpeedDialChild(
               child: const Icon(Icons.note),
               backgroundColor: Colors.orange,
               label: '메모장',
+              labelStyle:
+              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
               onTap: () {
                 Navigator.push(
                   context,
@@ -472,12 +512,16 @@ class _ListScreenState extends State<ListScreen>
               ),
               backgroundColor: Colors.amber,
               label: '즐겨찾기 필터',
+              labelStyle:
+              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
               onTap: () => viewModel.toggleFavoriteFilter(),
             ),
             SpeedDialChild(
               child: const Icon(Icons.delete_forever),
               backgroundColor: Colors.redAccent,
               label: '전체 삭제',
+              labelStyle:
+              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
               onTap: () async {
                 final shouldDeleteAll =
                 await _showDeleteAllConfirmDialog(context);
@@ -493,6 +537,8 @@ class _ListScreenState extends State<ListScreen>
               ),
               backgroundColor: Colors.purple,
               label: '다크모드 전환',
+              labelStyle:
+              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
               onTap: () {
                 setState(() {
                   isDarkMode = !isDarkMode;
@@ -503,6 +549,8 @@ class _ListScreenState extends State<ListScreen>
               child: const Icon(Icons.info_outline),
               backgroundColor: Colors.indigo,
               label: '앱 정보',
+              labelStyle:
+              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
               onTap: () => _showAboutDialog(context),
             ),
           ],
