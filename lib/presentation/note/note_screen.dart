@@ -1,426 +1,519 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:todolist/presentation/add_screen.dart';
-import 'package:todolist/presentation/note/note_screen.dart';
-import 'package:todolist/presentation/todo_item.dart';
-import 'package:todolist/presentation/list_view_model.dart';
+import 'package:todolist/model/note.dart';
+import 'package:todolist/presentation/note/note_view_model.dart';
 
-class ListScreen extends StatefulWidget {
-  const ListScreen({Key? key}) : super(key: key);
+class NoteScreen extends StatelessWidget {
+  final String todoId;
+  final String todoTitle;
 
-  @override
-  State<ListScreen> createState() => _ListScreenState();
-}
+  const NoteScreen({
+    Key? key,
+    required this.todoId,
+    required this.todoTitle,
+  }) : super(key: key);
 
-class _ListScreenState extends State<ListScreen>
-    with TickerProviderStateMixin {
-  final ScrollController _scrollController = ScrollController();
-  bool isDarkMode = true;
+  void _showNoteBottomSheet(BuildContext context, {Note? note}) {
+    final vm = context.read<NoteViewModel>();
+    final titleController = TextEditingController(text: note?.title ?? '');
+    final contentController = TextEditingController(text: note?.content ?? '');
+    Color selectedColor = note != null ? Color(note.color) : Colors.orange[100]!;
 
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ListViewModel>().loadTodos();
-    });
-
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _fadeAnimation =
-        CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
-    _fadeController.forward();
-  }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  /// 삭제 확인 다이얼로그
-  Future<bool> _showConfirmDialog({
-    required String title,
-    required String content,
-  }) async {
-    return await showDialog<bool>(
+    showGeneralDialog(
       context: context,
-      builder: (context) => ScaleTransition(
-        scale: CurvedAnimation(
-          parent: _fadeController,
-          curve: Curves.easeInOutBack,
-        ),
-        child: AlertDialog(
-          backgroundColor: Colors.white,
-          title: Text(title),
-          content: Text(content),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('취소'),
+      barrierDismissible: true,
+      barrierLabel: "메모 작성 해주세요.",
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            color: Colors.transparent,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return AnimatedPadding(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                    left: 16,
+                    right: 16,
+                  ),
+                  child: Container(
+                    width: MediaQuery.of(context).size.width,
+                    height: MediaQuery.of(context).size.height * 0.8,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.max,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            note == null ? "새 메모" : "메모 수정",
+                            style: const TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: titleController,
+                            decoration: const InputDecoration(
+                              hintText: "제목을 입력해 주세요",
+                              border: InputBorder.none,
+                              hintStyle: TextStyle(color: Colors.grey),
+                            ),
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w600),
+                          ),
+                          TextField(
+                            controller: contentController,
+                            maxLines: null,
+                            decoration: const InputDecoration(
+                              hintText: "메모 작성 해주세요.",
+                              border: InputBorder.none,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              const Text("색상: "),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                          BorderRadius.circular(20)),
+                                      title: const Text("색상 선택"),
+                                      content: BlockPicker(
+                                        pickerColor: selectedColor,
+                                        onColorChanged: (color) {
+                                          setState(() => selectedColor = color);
+                                          Navigator.pop(context);
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: CircleAvatar(
+                                  backgroundColor: selectedColor,
+                                  radius: 14,
+                                ),
+                              ),
+                              const Spacer(),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.deepOrange,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  if (contentController.text.trim().isEmpty) {
+                                    return;
+                                  }
+                                  if (note == null) {
+                                    vm.addNote(
+                                      contentController.text.trim(),
+                                      title: titleController.text.trim(),
+                                      color: selectedColor.value,
+                                    );
+                                  } else {
+                                    vm.updateNote(
+                                      note,
+                                      contentController.text.trim(),
+                                      title: titleController.text.trim(),
+                                      color: selectedColor.value,
+                                    );
+                                  }
+                                  Navigator.pop(context);
+                                },
+                                icon: const Icon(Icons.save),
+                                label: const Text("저장"),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제'),
-            ),
-          ],
-        ),
-      ),
-    ) ??
-        false;
-  }
-
-  /// 정렬 옵션 BottomSheet
-  void _showSortOptions(ListViewModel viewModel) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Wrap(
-        children: [
-          _sortOptionTile(Icons.star, '즐겨찾기 우선', () {
-            viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
-            viewModel.notifyListeners();
-          }),
-          _sortOptionTile(Icons.access_time, '마감일순', () {
-            viewModel.todos.sort((a, b) {
-              return (a.dueDate ?? DateTime.now())
-                  .compareTo(b.dueDate ?? DateTime.now());
-            });
-            viewModel.notifyListeners();
-          }),
-          _sortOptionTile(Icons.done_all, '완료 항목 우선', () {
-            viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
-            viewModel.notifyListeners();
-          }),
-        ],
-      ),
-    );
-  }
-
-  ListTile _sortOptionTile(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blue),
-      title: Text(title),
-      onTap: () {
-        Navigator.pop(context);
-        onTap();
+          ),
+        );
+      },
+      transitionBuilder: (context, anim, _, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: FadeTransition(
+            opacity: anim,
+            child: child,
+          ),
+        );
       },
     );
   }
 
-  /// 앱 정보 다이얼로그
-  void _showAboutDialog() {
-    showAboutDialog(
-      context: context,
-      applicationName: "TodoList Pro",
-      applicationVersion: "v2.0.1",
-      applicationIcon: const Icon(Icons.check_circle, color: Colors.blue),
-      children: [
-        const Text("세련된 Flutter Todo 앱입니다."),
-      ],
-    );
-  }
 
-  /// SpeedDial 버튼
-  Widget _buildSpeedDial(ListViewModel viewModel) {
-    return ScaleTransition(
-      scale: _fadeAnimation,
-      child: SpeedDial(
-        animatedIcon: AnimatedIcons.menu_close,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        spacing: 10,
-        spaceBetweenChildren: 8,
-        children: [
-          SpeedDialChild(
-            child: const Icon(Icons.playlist_add),
-            backgroundColor: Colors.lightBlue,
-            label: '할 일 추가',
-            onTap: () async {
-              await Navigator.push(
-                context,
-                PageRouteBuilder(
-                  transitionDuration: const Duration(milliseconds: 500),
-                  pageBuilder: (_, __, ___) => const AddScreen(),
-                  transitionsBuilder: (_, animation, __, child) =>
-                      FadeTransition(
-                          opacity: CurvedAnimation(
-                              parent: animation, curve: Curves.easeInOut),
-                          child: child),
-                ),
-              );
-              viewModel.refresh();
-            },
+  /// 삭제 확인
+  void _confirmDelete(BuildContext context, Note note) {
+    final vm = context.read<NoteViewModel>();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("메모 삭제"),
+        content: const Text("정말 이 메모를 삭제하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("취소"),
           ),
-          SpeedDialChild(
-            child: const Icon(Icons.sort),
-            backgroundColor: Colors.teal,
-            label: '정렬 옵션',
-            onTap: () => _showSortOptions(viewModel),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.note),
-            backgroundColor: Colors.orange,
-            label: '메모장',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const NoteScreen(
-                    todoId: '',
-                    todoTitle: '',
-                  ),
-                ),
-              );
-            },
-          ),
-          SpeedDialChild(
-            child: Icon(
-              viewModel.showOnlyFavorites ? Icons.star : Icons.star_border,
-              color: Colors.yellow,
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            backgroundColor: Colors.amber,
-            label: '즐겨찾기 필터',
-            onTap: () => viewModel.toggleFavoriteFilter(),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.delete_forever),
-            backgroundColor: Colors.redAccent,
-            label: '전체 삭제',
-            onTap: () async {
-              final shouldDeleteAll = await _showConfirmDialog(
-                title: '전체 삭제',
-                content: '모든 할 일을 삭제하시겠습니까?',
-              );
-              if (shouldDeleteAll) viewModel.clearAllTodos();
+            onPressed: () {
+              vm.deleteNote(note);
+              Navigator.pop(context);
             },
-          ),
-          SpeedDialChild(
-            child: Icon(
-              isDarkMode ? Icons.light_mode : Icons.dark_mode,
-              color: Colors.white,
-            ),
-            backgroundColor: Colors.purple,
-            label: '다크모드 전환',
-            onTap: () => setState(() => isDarkMode = !isDarkMode),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.info_outline),
-            backgroundColor: Colors.indigo,
-            label: '앱 정보',
-            onTap: _showAboutDialog,
+            child: const Text("삭제"),
           ),
         ],
       ),
     );
   }
 
-  /// ---------------- UI BUILD ----------------
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<ListViewModel>();
+    return Consumer<NoteViewModel>(
+      builder: (context, vm, child) {
+        final tags = ["all", ...vm.getAllTags()];
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: isDarkMode ? Colors.black : Colors.white,
-      appBar: AppBar(
-        title: const Hero(
-          tag: 'app_title',
-          child: Material(
-            color: Colors.transparent,
-            child: Text(
-              'TodoList',
-              style: TextStyle(
-                color: Colors.blue,
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: Stack(
-          children: [
-            _buildBackground(),
-            SafeArea(
-              child: viewModel.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Column(
-                children: [
-                  _buildSearchBar(viewModel),
-                  _buildFilterChips(viewModel),
-                  _buildProgressBar(viewModel),
-                  const SizedBox(height: 12),
-                  _buildTodoList(viewModel),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: _buildSpeedDial(viewModel),
-    );
-  }
-
-  /// 배경 위젯
-  Widget _buildBackground() {
-    return Container(
-      decoration: isDarkMode
-          ? const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.black, Colors.black87, Colors.black54],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      )
-          : const BoxDecoration(color: Colors.white),
-    );
-  }
-
-  /// 검색창
-  Widget _buildSearchBar(ListViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: TextField(
-        onChanged: viewModel.setSearchKeyword,
-        style: TextStyle(
-          color: isDarkMode ? Colors.white : Colors.black,
-        ),
-        decoration: InputDecoration(
-          hintText: '할 일을 검색하세요...',
-          hintStyle: TextStyle(
-            color: isDarkMode ? Colors.white54 : Colors.black45,
-          ),
-          filled: true,
-          fillColor:
-          isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05),
-          prefixIcon: Icon(Icons.search,
-              color: isDarkMode ? Colors.white54 : Colors.black54),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 필터칩
-  Widget _buildFilterChips(ListViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _filterChip('전체', FilterStatus.all, viewModel),
-          _filterChip('완료', FilterStatus.done, viewModel),
-          _filterChip('미완료', FilterStatus.notDone, viewModel),
-        ],
-      ),
-    );
-  }
-
-  ChoiceChip _filterChip(String label, FilterStatus status, ListViewModel vm) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: vm.filterStatus == status,
-      selectedColor: Colors.blue,
-      onSelected: (_) => vm.setFilterStatus(status),
-    );
-  }
-
-  /// 진행률 바
-  Widget _buildProgressBar(ListViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: LinearProgressIndicator(
-        value: viewModel.progress,
-        backgroundColor: Colors.black12,
-        valueColor: const AlwaysStoppedAnimation<Color>(
-            Colors.lightGreenAccent),
-        minHeight: 6,
-      ),
-    );
-  }
-
-  /// 할 일 리스트
-  Widget _buildTodoList(ListViewModel viewModel) {
-    if (viewModel.filteredTodos.isEmpty) {
-      return const Expanded(
-        child: Center(
-          child: Text(
-            '할 일이 없습니다.',
-            style: TextStyle(color: Colors.blue, fontSize: 18),
-          ),
-        ),
-      );
-    }
-
-    return Expanded(
-      child: ListView.builder(
-        controller: _scrollController,
-        itemCount: viewModel.filteredTodos.length,
-        itemBuilder: (context, index) {
-          final todo = viewModel.filteredTodos[index];
-          final date =
-          DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
-          final formattedDate =
-              '${date.year}년 ${date.month}월 ${date.day}일';
-
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-            ),
-            child: Dismissible(
-              key: Key(todo.key.toString()),
-              direction: DismissDirection.endToStart,
-              confirmDismiss: (_) async {
-                return await _showConfirmDialog(
-                  title: "삭제 확인",
-                  content: "정말 이 항목을 삭제하시겠습니까?",
-                );
-              },
-              onDismissed: (_) => viewModel.deleteTodo(todo),
-              background: Container(
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                color: Colors.redAccent,
-                child: const Icon(Icons.delete, color: Colors.white),
-              ),
-              child: TodoItem(
-                todo: todo,
-                formattedDate: formattedDate,
-                onTapCallBack: viewModel.toggleDone,
-                onDelete: (todo) async {
-                  final shouldDelete = await _showConfirmDialog(
-                    title: "삭제 확인",
-                    content: "정말 이 항목을 삭제하시겠습니까?",
+        return Scaffold(
+          appBar: AppBar(
+            title: Text("${vm.todoTitle}의 메모"),
+            backgroundColor: Colors.deepOrange,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: () async {
+                  final query = await showSearch<String?>(
+                    context: context,
+                    delegate: _NoteSearchDelegate(),
                   );
-                  if (shouldDelete) viewModel.deleteTodo(todo);
+                  if (query != null) vm.setSearchQuery(query);
                 },
               ),
-            ),
-          );
-        },
-      ),
+              IconButton(
+                icon: Icon(
+                  vm.showOnlyPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                ),
+                onPressed: () => vm.togglePinnedFilter(),
+              ),
+              IconButton(
+                icon: Icon(
+                  vm.showArchived ? Icons.archive : Icons.archive_outlined,
+                ),
+                onPressed: () => vm.toggleArchiveFilter(),
+              ),
+              PopupMenuButton<SortType>(
+                icon: const Icon(Icons.sort),
+                onSelected: (type) => vm.setSortType(type),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: SortType.latest,
+                    child: Text("최신순"),
+                  ),
+                  PopupMenuItem(
+                    value: SortType.oldest,
+                    child: Text("오래된순"),
+                  ),
+                  PopupMenuItem(
+                    value: SortType.title,
+                    child: Text("제목순"),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          /// 🔥 FAB
+          floatingActionButton: SpeedDial(
+            animatedIcon: AnimatedIcons.menu_close,
+            backgroundColor: Colors.deepOrange,
+            overlayColor: Colors.black,
+            overlayOpacity: 0.5,
+            spacing: 12,
+            spaceBetweenChildren: 12,
+            children: [
+              SpeedDialChild(
+                child: const Icon(Icons.add, color: Colors.white),
+                backgroundColor: Colors.green,
+                label: "새 메모 추가",
+                onTap: () => _showNoteBottomSheet(context),
+              ),
+              SpeedDialChild(
+                child: Icon(
+                  vm.showOnlyPinned ? Icons.star : Icons.star_border,
+                  color: Colors.white,
+                ),
+                backgroundColor: Colors.blueGrey,
+                label: vm.showOnlyPinned ? "전체 메모 보기" : "즐겨찾기만 보기",
+                onTap: () => vm.togglePinnedFilter(),
+              ),
+              SpeedDialChild(
+                child: const Icon(Icons.sort, color: Colors.white),
+                backgroundColor: Colors.purple,
+                label: "정렬 옵션",
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("상단 메뉴에서 정렬을 선택하세요.")),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          body: vm.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+            children: [
+              if (tags.isNotEmpty)
+                SizedBox(
+                  height: 42,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    scrollDirection: Axis.horizontal,
+                    itemBuilder: (context, i) {
+                      final tag = tags[i];
+                      final selected = vm.selectedTag == tag;
+                      return ChoiceChip(
+                        label: Text(tag == "all" ? "전체" : tag),
+                        selected: selected,
+                        onSelected: (_) => vm.setTagFilter(tag),
+                        selectedColor: Colors.deepOrange.shade100,
+                      );
+                    },
+                    separatorBuilder: (_, __) =>
+                    const SizedBox(width: 8),
+                    itemCount: tags.length,
+                  ),
+                ),
+              Expanded(
+                child: vm.notes.isEmpty
+                    ? const Center(
+                  child: Text(
+                    "메모가 없습니다.\n+ 버튼을 눌러 추가하세요.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 16, color: Colors.grey),
+                  ),
+                )
+                    : GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.9,
+                  ),
+                  itemCount: vm.notes.length,
+                  itemBuilder: (context, index) {
+                    final note = vm.notes[index];
+                    final dateText =
+                    DateFormat('MM/dd HH:mm').format(
+                      DateTime.fromMillisecondsSinceEpoch(
+                          note.updatedAt ?? note.createdAt),
+                    );
+
+                    return Dismissible(
+                      key: Key(note.id),
+                      background: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 20),
+                        child: const Icon(Icons.delete,
+                            color: Colors.white),
+                      ),
+                      secondaryBackground: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        child: const Icon(Icons.delete,
+                            color: Colors.white),
+                      ),
+                      confirmDismiss: (_) async {
+                        _confirmDelete(context, note);
+                        return false;
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Color(note.color),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            )
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => _showNoteBottomSheet(context,
+                              note: note),
+                          child: Column(
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      note.title.isNotEmpty
+                                          ? note.title
+                                          : "(제목 없음)",
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow:
+                                      TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      note.isPinned
+                                          ? Icons.push_pin
+                                          : Icons.push_pin_outlined,
+                                      color: note.isPinned
+                                          ? Colors.deepOrange
+                                          : Colors.grey,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        vm.togglePin(note),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Expanded(
+                                child: Text(
+                                  note.content,
+                                  maxLines: 5,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment
+                                    .spaceBetween,
+                                children: [
+                                  Text(
+                                    dateText,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      note.isArchived
+                                          ? Icons.archive
+                                          : Icons.archive_outlined,
+                                      color: note.isArchived
+                                          ? Colors.blue
+                                          : Colors.grey,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        vm.toggleArchive(note),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 🔎 검색 Delegate
+class _NoteSearchDelegate extends SearchDelegate<String?> {
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      if (query.isNotEmpty)
+        IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () => query = '',
+        )
+    ];
+  }
+
+  @override
+  Widget? buildLeading(BuildContext context) {
+    return BackButton(onPressed: () => close(context, null));
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    close(context, query);
+    return Container();
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Text("검색어 입력: $query"),
     );
   }
 }

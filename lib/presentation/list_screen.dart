@@ -45,7 +45,11 @@ class _ListScreenState extends State<ListScreen>
     super.dispose();
   }
 
-  Future<bool> _showDeleteConfirmDialog(BuildContext context) async {
+  /// 삭제 확인 다이얼로그
+  Future<bool> _showConfirmDialog({
+    required String title,
+    required String content,
+  }) async {
     return await showDialog<bool>(
       context: context,
       builder: (context) => ScaleTransition(
@@ -54,23 +58,17 @@ class _ListScreenState extends State<ListScreen>
           curve: Curves.easeInOutBack,
         ),
         child: AlertDialog(
-          backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
-          title: Text('삭제 확인',
-              style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black)),
-          content: Text('정말 이 항목을 삭제하시겠습니까?',
-              style: TextStyle(
-                  color: isDarkMode ? Colors.white70 : Colors.black87)),
+          backgroundColor: Colors.white,
+          title: Text(title),
+          content: Text(content),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('취소',
-                  style: TextStyle(
-                      color: isDarkMode ? Colors.white : Colors.black)),
+              child: const Text('취소'),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제', style: TextStyle(color: Colors.red)),
+              child: const Text('삭제'),
             ),
           ],
         ),
@@ -79,104 +77,155 @@ class _ListScreenState extends State<ListScreen>
         false;
   }
 
-  Future<bool> _showDeleteAllConfirmDialog(BuildContext context) async {
-    return await showDialog<bool>(
-      context: context,
-      builder: (context) => ScaleTransition(
-        scale: CurvedAnimation(
-          parent: _fadeController,
-          curve: Curves.easeInOutBack,
-        ),
-        child: AlertDialog(
-          backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
-          title: Text('전체 삭제',
-              style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black)),
-          content: Text('모든 할 일을 삭제하시겠습니까?',
-              style: TextStyle(
-                  color: isDarkMode ? Colors.white70 : Colors.black87)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text('취소',
-                  style: TextStyle(
-                      color: isDarkMode ? Colors.white : Colors.black)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      ),
-    ) ??
-        false;
-  }
-
-  void _showSortOptions(BuildContext context, ListViewModel viewModel) {
+  /// 정렬 옵션 BottomSheet
+  void _showSortOptions(ListViewModel viewModel) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => AnimatedPadding(
-        duration: const Duration(milliseconds: 300),
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.star, color: Colors.amber),
-              title: Text('즐겨찾기 우선',
-                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
-              onTap: () {
-                Navigator.pop(context);
-                viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
-                viewModel.notifyListeners();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.access_time, color: Colors.blue),
-              title: Text('마감일순',
-                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
-              onTap: () {
-                Navigator.pop(context);
-                viewModel.todos.sort((a, b) {
-                  return (a.dueDate ?? DateTime.now())
-                      .compareTo(b.dueDate ?? DateTime.now());
-                });
-                viewModel.notifyListeners();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.done_all, color: Colors.green),
-              title: Text('완료 항목 우선',
-                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
-              onTap: () {
-                Navigator.pop(context);
-                viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
-                viewModel.notifyListeners();
-              },
-            ),
-          ],
-        ),
+      builder: (_) => Wrap(
+        children: [
+          _sortOptionTile(Icons.star, '즐겨찾기 우선', () {
+            viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
+            viewModel.notifyListeners();
+          }),
+          _sortOptionTile(Icons.access_time, '마감일순', () {
+            viewModel.todos.sort((a, b) {
+              return (a.dueDate ?? DateTime.now())
+                  .compareTo(b.dueDate ?? DateTime.now());
+            });
+            viewModel.notifyListeners();
+          }),
+          _sortOptionTile(Icons.done_all, '완료 항목 우선', () {
+            viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
+            viewModel.notifyListeners();
+          }),
+        ],
       ),
     );
   }
 
-  void _showAboutDialog(BuildContext context) {
+  ListTile _sortOptionTile(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.blue),
+      title: Text(title),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+    );
+  }
+
+  /// 앱 정보 다이얼로그
+  void _showAboutDialog() {
     showAboutDialog(
       context: context,
       applicationName: "TodoList Pro",
       applicationVersion: "v2.0.1",
       applicationIcon: const Icon(Icons.check_circle, color: Colors.blue),
       children: [
-        Text("세련된 Flutter Todo 앱입니다.",
-            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
+        const Text("세련된 Flutter Todo 앱입니다."),
       ],
     );
   }
 
+  /// SpeedDial 버튼
+  Widget _buildSpeedDial(ListViewModel viewModel) {
+    return ScaleTransition(
+      scale: _fadeAnimation,
+      child: SpeedDial(
+        animatedIcon: AnimatedIcons.menu_close,
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        spacing: 10,
+        spaceBetweenChildren: 8,
+        children: [
+          SpeedDialChild(
+            child: const Icon(Icons.playlist_add),
+            backgroundColor: Colors.lightBlue,
+            label: '할 일 추가',
+            onTap: () async {
+              await Navigator.push(
+                context,
+                PageRouteBuilder(
+                  transitionDuration: const Duration(milliseconds: 500),
+                  pageBuilder: (_, __, ___) => const AddScreen(),
+                  transitionsBuilder: (_, animation, __, child) =>
+                      FadeTransition(
+                          opacity: CurvedAnimation(
+                              parent: animation, curve: Curves.easeInOut),
+                          child: child),
+                ),
+              );
+              viewModel.refresh();
+            },
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.sort),
+            backgroundColor: Colors.teal,
+            label: '정렬 옵션',
+            onTap: () => _showSortOptions(viewModel),
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.note),
+            backgroundColor: Colors.orange,
+            label: '메모장',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NoteScreen(
+                    todoId: '',
+                    todoTitle: '',
+                  ),
+                ),
+              );
+            },
+          ),
+          SpeedDialChild(
+            child: Icon(
+              viewModel.showOnlyFavorites ? Icons.star : Icons.star_border,
+              color: Colors.yellow,
+            ),
+            backgroundColor: Colors.amber,
+            label: '즐겨찾기 필터',
+            onTap: () => viewModel.toggleFavoriteFilter(),
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.delete_forever),
+            backgroundColor: Colors.redAccent,
+            label: '전체 삭제',
+            onTap: () async {
+              final shouldDeleteAll = await _showConfirmDialog(
+                title: '전체 삭제',
+                content: '모든 할 일을 삭제하시겠습니까?',
+              );
+              if (shouldDeleteAll) viewModel.clearAllTodos();
+            },
+          ),
+          SpeedDialChild(
+            child: Icon(
+              isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: Colors.white,
+            ),
+            backgroundColor: Colors.purple,
+            label: '다크모드 전환',
+            onTap: () => setState(() => isDarkMode = !isDarkMode),
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.info_outline),
+            backgroundColor: Colors.indigo,
+            label: '앱 정보',
+            onTap: _showAboutDialog,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ---------------- UI BUILD ----------------
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<ListViewModel>();
@@ -185,14 +234,14 @@ class _ListScreenState extends State<ListScreen>
       extendBodyBehindAppBar: true,
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
       appBar: AppBar(
-        title: Hero(
+        title: const Hero(
           tag: 'app_title',
           child: Material(
             color: Colors.transparent,
             child: Text(
               'TodoList',
               style: TextStyle(
-                color: isDarkMode ? Colors.white : Colors.black,
+                color: Colors.blue,
                 fontWeight: FontWeight.bold,
                 fontSize: 22,
               ),
@@ -207,354 +256,170 @@ class _ListScreenState extends State<ListScreen>
         opacity: _fadeAnimation,
         child: Stack(
           children: [
-            Container(
-              decoration: isDarkMode
-                  ? const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.black, Colors.black87, Colors.black54],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              )
-                  : const BoxDecoration(color: Colors.white),
-            ),
-            if (isDarkMode)
-              BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                child: Container(
-                  color: Colors.black.withOpacity(0.3),
-                ),
-              ),
+            _buildBackground(),
             SafeArea(
               child: viewModel.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : Column(
                 children: [
-                  // 검색창
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeInOut,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: TextField(
-                      onChanged: (value) =>
-                          viewModel.setSearchKeyword(value),
-                      style: TextStyle(
-                        color: isDarkMode ? Colors.white : Colors.black,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '할 일을 검색하세요...',
-                        hintStyle: TextStyle(
-                          color: isDarkMode
-                              ? Colors.white54
-                              : Colors.black45,
-                        ),
-                        filled: true,
-                        fillColor: isDarkMode
-                            ? Colors.white10
-                            : Colors.black.withOpacity(0.05),
-                        prefixIcon: Icon(Icons.search,
-                            color: isDarkMode
-                                ? Colors.white54
-                                : Colors.black54),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 필터
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
-                    transitionBuilder: (child, animation) =>
-                        ScaleTransition(scale: animation, child: child),
-                    child: Padding(
-                      key: ValueKey(viewModel.filterStatus),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ChoiceChip(
-                            label: const Text('전체'),
-                            labelStyle: TextStyle(
-                                color: isDarkMode
-                                    ? Colors.white
-                                    : Colors.black),
-                            selected: viewModel.filterStatus ==
-                                FilterStatus.all,
-                            selectedColor: Colors.blue,
-                            onSelected: (_) => viewModel
-                                .setFilterStatus(FilterStatus.all),
-                          ),
-                          ChoiceChip(
-                            label: const Text('완료'),
-                            labelStyle: TextStyle(
-                                color: isDarkMode
-                                    ? Colors.white
-                                    : Colors.black),
-                            selected: viewModel.filterStatus ==
-                                FilterStatus.done,
-                            selectedColor: Colors.green,
-                            onSelected: (_) => viewModel
-                                .setFilterStatus(FilterStatus.done),
-                          ),
-                          ChoiceChip(
-                            label: const Text('미완료'),
-                            labelStyle: TextStyle(
-                                color: isDarkMode
-                                    ? Colors.white
-                                    : Colors.black),
-                            selected: viewModel.filterStatus ==
-                                FilterStatus.notDone,
-                            selectedColor: Colors.redAccent,
-                            onSelected: (_) => viewModel
-                                .setFilterStatus(FilterStatus.notDone),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: LinearProgressIndicator(
-                      value: viewModel.progress,
-                      backgroundColor: Colors.black12,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                          Colors.lightGreenAccent),
-                      minHeight: 6,
-                    ),
-                  ),
+                  _buildSearchBar(viewModel),
+                  _buildFilterChips(viewModel),
+                  _buildProgressBar(viewModel),
                   const SizedBox(height: 12),
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 500),
-                      child: viewModel.filteredTodos.isEmpty
-                          ? Center(
-                        key: const ValueKey("empty"),
-                        child: Text(
-                          '할 일이 없습니다.',
-                          style: TextStyle(
-                              color: isDarkMode
-                                  ? Colors.white
-                                  : Colors.black,
-                              fontSize: 18),
-                        ),
-                      )
-                          : ListView.builder(
-                        key: ValueKey(viewModel.filteredTodos),
-                        controller: _scrollController,
-                        itemCount:
-                        viewModel.filteredTodos.length,
-                        itemBuilder: (context, index) {
-                          final todo =
-                          viewModel.filteredTodos[index];
-                          final date =
-                          DateTime.fromMillisecondsSinceEpoch(
-                              todo.dateTime);
-                          final formattedDate =
-                              '${date.year}년 ${date.month}월 ${date.day}일';
-
-                          return SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(1, 0),
-                              end: Offset.zero,
-                            ).animate(
-                              CurvedAnimation(
-                                  parent: _fadeController,
-                                  curve: Curves.easeOut),
-                            ),
-                            child: Dismissible(
-                              key: Key(todo.key.toString()),
-                              direction:
-                              DismissDirection.endToStart,
-                              confirmDismiss: (_) async {
-                                return await _showDeleteConfirmDialog(
-                                    context);
-                              },
-                              onDismissed: (_) =>
-                                  viewModel.deleteTodo(todo),
-                              background: Container(
-                                alignment:
-                                Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20),
-                                color: Colors.redAccent,
-                                child: const Icon(Icons.delete,
-                                    color: Colors.white),
-                              ),
-                              child: TodoItem(
-                                todo: todo,
-                                formattedDate: formattedDate,
-                                trailing: AnimatedSwitcher(
-                                  duration: const Duration(
-                                      milliseconds: 300),
-                                  transitionBuilder:
-                                      (child, anim) =>
-                                      ScaleTransition(
-                                          scale: anim,
-                                          child: child),
-                                  child: todo.isDone
-                                      ? GestureDetector(
-                                    onTap: () async {
-                                      final shouldDelete =
-                                      await _showDeleteConfirmDialog(
-                                          context);
-                                      if (shouldDelete) {
-                                        await viewModel
-                                            .deleteTodo(
-                                            todo);
-                                      }
-                                    },
-                                    child: const Icon(
-                                        Icons.delete,
-                                        color: Colors
-                                            .redAccent),
-                                  )
-                                      : Icon(
-                                      Icons
-                                          .arrow_forward_ios,
-                                      color: isDarkMode
-                                          ? Colors.white54
-                                          : Colors.black54),
-                                ),
-                                onTapCallBack: (todo) =>
-                                    viewModel.toggleDone(todo),
-                                onDelete: (todo) async {
-                                  final shouldDelete =
-                                  await _showDeleteConfirmDialog(
-                                      context);
-                                  if (shouldDelete) {
-                                    await viewModel
-                                        .deleteTodo(todo);
-                                  }
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
+                  _buildTodoList(viewModel),
                 ],
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: ScaleTransition(
-        scale: _fadeAnimation,
-        child: SpeedDial(
-          animatedIcon: AnimatedIcons.menu_close,
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-          spacing: 10,
-          spaceBetweenChildren: 8,
-          children: [
-            SpeedDialChild(
-              child: const Icon(Icons.playlist_add),
-              backgroundColor: Colors.lightBlue,
-              label: '할 일 추가',
-              labelStyle:
-              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  PageRouteBuilder(
-                    transitionDuration: const Duration(milliseconds: 500),
-                    pageBuilder: (context, animation, secondaryAnimation) =>
-                    const AddScreen(),
-                    transitionsBuilder: (context, animation,
-                        secondaryAnimation, child) {
-                      final curvedAnimation = CurvedAnimation(
-                          parent: animation, curve: Curves.easeInOut);
-                      return FadeTransition(
-                          opacity: curvedAnimation, child: child);
-                    },
-                  ),
-                );
-                viewModel.refresh();
-              },
-            ),
-            SpeedDialChild(
-              child: const Icon(Icons.sort),
-              backgroundColor: Colors.teal,
-              label: '정렬 옵션',
-              labelStyle:
-              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              onTap: () => _showSortOptions(context, viewModel),
-            ),
-            SpeedDialChild(
-              child: const Icon(Icons.note),
-              backgroundColor: Colors.orange,
-              label: '메모장',
-              labelStyle:
-              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NoteScreen(
-                      todoId: '',
-                      todoTitle: '',
-                    ),
-                  ),
-                );
-              },
-            ),
-            SpeedDialChild(
-              child: Icon(
-                viewModel.showOnlyFavorites
-                    ? Icons.star
-                    : Icons.star_border,
-                color: Colors.yellow,
-              ),
-              backgroundColor: Colors.amber,
-              label: '즐겨찾기 필터',
-              labelStyle:
-              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              onTap: () => viewModel.toggleFavoriteFilter(),
-            ),
-            SpeedDialChild(
-              child: const Icon(Icons.delete_forever),
-              backgroundColor: Colors.redAccent,
-              label: '전체 삭제',
-              labelStyle:
-              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              onTap: () async {
-                final shouldDeleteAll =
-                await _showDeleteAllConfirmDialog(context);
-                if (shouldDeleteAll) {
-                  viewModel.clearAllTodos();
-                }
-              },
-            ),
-            SpeedDialChild(
-              child: Icon(
-                isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                color: Colors.white,
-              ),
-              backgroundColor: Colors.purple,
-              label: '다크모드 전환',
-              labelStyle:
-              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              onTap: () {
-                setState(() {
-                  isDarkMode = !isDarkMode;
-                });
-              },
-            ),
-            SpeedDialChild(
-              child: const Icon(Icons.info_outline),
-              backgroundColor: Colors.indigo,
-              label: '앱 정보',
-              labelStyle:
-              TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              onTap: () => _showAboutDialog(context),
-            ),
-          ],
+      floatingActionButton: _buildSpeedDial(viewModel),
+    );
+  }
+
+  /// 배경 위젯
+  Widget _buildBackground() {
+    return Container(
+      decoration: isDarkMode
+          ? const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.black, Colors.black87, Colors.black54],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+      )
+          : const BoxDecoration(color: Colors.white),
+    );
+  }
+
+  /// 검색창
+  Widget _buildSearchBar(ListViewModel viewModel) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: TextField(
+        onChanged: viewModel.setSearchKeyword,
+        style: TextStyle(
+          color: isDarkMode ? Colors.white : Colors.black,
+        ),
+        decoration: InputDecoration(
+          hintText: '할 일을 검색하세요...',
+          hintStyle: TextStyle(
+            color: isDarkMode ? Colors.white54 : Colors.black45,
+          ),
+          filled: true,
+          fillColor:
+          isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05),
+          prefixIcon: Icon(Icons.search,
+              color: isDarkMode ? Colors.white54 : Colors.black54),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 필터칩
+  Widget _buildFilterChips(ListViewModel viewModel) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _filterChip('전체', FilterStatus.all, viewModel),
+          _filterChip('완료', FilterStatus.done, viewModel),
+          _filterChip('미완료', FilterStatus.notDone, viewModel),
+        ],
+      ),
+    );
+  }
+
+  ChoiceChip _filterChip(String label, FilterStatus status, ListViewModel vm) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: vm.filterStatus == status,
+      selectedColor: Colors.blue,
+      onSelected: (_) => vm.setFilterStatus(status),
+    );
+  }
+
+  /// 진행률 바
+  Widget _buildProgressBar(ListViewModel viewModel) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: LinearProgressIndicator(
+        value: viewModel.progress,
+        backgroundColor: Colors.black12,
+        valueColor: const AlwaysStoppedAnimation<Color>(
+            Colors.lightGreenAccent),
+        minHeight: 6,
+      ),
+    );
+  }
+
+  /// 할 일 리스트
+  Widget _buildTodoList(ListViewModel viewModel) {
+    if (viewModel.filteredTodos.isEmpty) {
+      return const Expanded(
+        child: Center(
+          child: Text(
+            '할 일이 없습니다.',
+            style: TextStyle(color: Colors.blue, fontSize: 18),
+          ),
+        ),
+      );
+    }
+
+    return Expanded(
+      child: ListView.builder(
+        controller: _scrollController,
+        itemCount: viewModel.filteredTodos.length,
+        itemBuilder: (context, index) {
+          final todo = viewModel.filteredTodos[index];
+          final date =
+          DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
+          final formattedDate =
+              '${date.year}년 ${date.month}월 ${date.day}일';
+
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+            ),
+            child: Dismissible(
+              key: Key(todo.key.toString()),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (_) async {
+                return await _showConfirmDialog(
+                  title: "삭제 확인",
+                  content: "정말 이 항목을 삭제하시겠습니까?",
+                );
+              },
+              onDismissed: (_) => viewModel.deleteTodo(todo),
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                color: Colors.redAccent,
+                child: const Icon(Icons.delete, color: Colors.white),
+              ),
+              child: TodoItem(
+                todo: todo,
+                formattedDate: formattedDate,
+                onTapCallBack: viewModel.toggleDone,
+                onDelete: (todo) async {
+                  final shouldDelete = await _showConfirmDialog(
+                    title: "삭제 확인",
+                    content: "정말 이 항목을 삭제하시겠습니까?",
+                  );
+                  if (shouldDelete) viewModel.deleteTodo(todo);
+                },
+              ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -6,7 +6,7 @@ class TodoItem extends StatelessWidget {
   final String formattedDate;
   final Function(Todo) onTapCallBack; // 완료 토글용
   final Function(Todo) onDelete;
-  final Widget trailing;
+  final Widget? trailing; // 수정: nullable 로 변경
 
   const TodoItem({
     Key? key,
@@ -14,7 +14,7 @@ class TodoItem extends StatelessWidget {
     required this.formattedDate,
     required this.onTapCallBack,
     required this.onDelete,
-    required this.trailing,
+    this.trailing, // trailing 은 선택적 전달
   }) : super(key: key);
 
   @override
@@ -26,18 +26,22 @@ class TodoItem extends StatelessWidget {
           : const Icon(Icons.check_circle_outline),
       title: Text(
         todo.title,
-        style: TextStyle(color: todo.isDone ? Colors.grey : Colors.black),
+        style: TextStyle(
+          color: todo.isDone ? Colors.grey : Colors.black,
+          decoration: todo.isDone ? TextDecoration.lineThrough : null,
+        ),
       ),
       subtitle: Text(
         formattedDate,
         style: TextStyle(color: todo.isDone ? Colors.grey : Colors.black),
       ),
-      trailing: todo.isDone
-          ? GestureDetector(
-        onTap: () => onDelete(todo),
-        child: const Icon(Icons.delete),
-      )
-          : null,
+      trailing: trailing ??
+          (todo.isDone
+              ? GestureDetector(
+            onTap: () => onDelete(todo),
+            child: const Icon(Icons.delete, color: Colors.redAccent),
+          )
+              : const Icon(Icons.arrow_forward_ios, size: 16)),
     );
   }
 }
