@@ -2,6 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:lottie/lottie.dart';
+import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
+import 'package:animated_text_kit/animated_text_kit.dart';
+
 import 'add_view_model.dart';
 
 class AddScreen extends StatelessWidget {
@@ -37,33 +42,51 @@ class AddScreen extends StatelessWidget {
     final vm = context.read<AddViewModel>();
 
     if (!vm.isInputValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("❗ 할 일을 입력해주세요!"),
-          backgroundColor: Colors.redAccent,
+      final snackBar = SnackBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: AwesomeSnackbarContent(
+          title: '⚠️ 입력 오류',
+          message: '할 일을 입력해주세요!',
+          contentType: ContentType.failure,
         ),
       );
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
       return;
     }
 
     await vm.saveTodo();
 
-    // 저장 성공 애니메이션
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          vm.isDueToday()
-              ? "⚠️ 오늘 마감인 할 일이 추가되었습니다!"
-              : "✅ 할 일이 저장되었습니다!",
+    // ✅ 저장 성공 애니메이션 (Lottie + Snackbar)
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(
+        child: Lottie.asset(
+          'assets/lottie/success.json',
+          repeat: false,
+          width: 160,
         ),
-        backgroundColor: vm.isDueToday() ? Colors.orangeAccent : Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
       ),
     );
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (context.mounted) Navigator.of(context).pop(); // 닫기
+
+    final snackBar = SnackBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      content: AwesomeSnackbarContent(
+        title: vm.isDueToday() ? '📅 오늘 마감!' : '✅ 저장 완료',
+        message: vm.isDueToday()
+            ? "오늘까지 해야 할 일이 추가되었어요!"
+            : "할 일이 정상적으로 저장되었습니다.",
+        contentType: vm.isDueToday() ? ContentType.warning : ContentType.success,
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+
+    await Future.delayed(const Duration(milliseconds: 400));
     if (context.mounted) context.pop();
   }
 
@@ -78,9 +101,17 @@ class AddScreen extends StatelessWidget {
           extendBodyBehindAppBar: true,
           backgroundColor: Colors.black,
           appBar: AppBar(
-            title: const Text('📝 할 일 추가하기',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+            title: AnimatedTextKit(
+              animatedTexts: [
+                TypewriterAnimatedText(
+                  '📝 새로운 할 일 추가하기',
+                  textStyle: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                  speed: const Duration(milliseconds: 80),
+                ),
+              ],
+              totalRepeatCount: 1,
+            ),
             backgroundColor: Colors.transparent,
             elevation: 0,
             centerTitle: true,
@@ -100,7 +131,7 @@ class AddScreen extends StatelessWidget {
               ),
               BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: Container(color: Colors.black.withOpacity(0.2)),
+                child: Container(color: Colors.black.withOpacity(0.25)),
               ),
 
               SafeArea(
@@ -110,189 +141,116 @@ class AddScreen extends StatelessWidget {
                     children: [
                       // 📌 할 일 입력
                       GlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.edit_note,
-                                    color: Colors.tealAccent, size: 26),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: vm.textController,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 16),
-                                    maxLength: 100,
-                                    decoration: InputDecoration(
-                                      counterText: "",
-                                      hintText: '할 일을 입력하세요...',
-                                      hintStyle: TextStyle(
-                                          color: Colors.white.withOpacity(0.4)),
-                                      border: InputBorder.none,
-                                    ),
-                                    onFieldSubmitted: (_) =>
-                                        FocusScope.of(context).unfocus(),
-                                  ),
+                            const Icon(Icons.edit_note,
+                                color: Colors.tealAccent, size: 26),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: vm.textController,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 16),
+                                maxLength: 100,
+                                decoration: InputDecoration(
+                                  counterText: "",
+                                  hintText: '할 일을 입력하세요...',
+                                  hintStyle: TextStyle(
+                                      color: Colors.white.withOpacity(0.4)),
+                                  border: InputBorder.none,
                                 ),
-                              ],
-                            ),
-                            Align(
-                              alignment: Alignment.bottomRight,
-                              child: Text(
-                                "${vm.textController.text.length}/100",
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: vm.textController.text.length > 90
-                                        ? Colors.redAccent
-                                        : Colors.white70),
                               ),
                             ),
                           ],
                         ),
-                      ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms)
+                          .slideY(begin: 0.2),
 
                       // 📌 우선순위 선택
                       GlassCard(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.flag,
-                                color: Colors.amberAccent, size: 24),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: vm.selectedPriority,
-                                dropdownColor: Colors.black87,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  labelText: "우선순위",
-                                  labelStyle: TextStyle(color: Colors.white70),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(
-                                      value: 'high', child: Text('🔥 높음')),
-                                  DropdownMenuItem(
-                                      value: 'medium', child: Text('🌟 보통')),
-                                  DropdownMenuItem(
-                                      value: 'low', child: Text('🍃 낮음')),
-                                ],
-                                onChanged: (val) {
-                                  vm.setPriority(val);
-                                  // 간단한 애니메이션 효과
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("우선순위가 '${val ?? ''}'로 변경됨"),
-                                      backgroundColor: Colors.blueGrey,
-                                      duration:
-                                      const Duration(milliseconds: 800),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
+                        child: DropdownButtonFormField<String>(
+                          value: vm.selectedPriority,
+                          dropdownColor: Colors.black87,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            labelText: "우선순위",
+                            labelStyle: TextStyle(color: Colors.white70),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                                value: 'high', child: Text('🔥 높음')),
+                            DropdownMenuItem(
+                                value: 'medium', child: Text('🌟 보통')),
+                            DropdownMenuItem(
+                                value: 'low', child: Text('🍃 낮음')),
                           ],
+                          onChanged: (val) => vm.setPriority(val),
                         ),
-                      ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 200.ms)
+                          .slideX(begin: -0.2),
 
                       // 📌 마감일 선택
                       GlassCard(
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
                           onTap: () => _pickDueDate(context),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 14, horizontal: 8),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today,
-                                    color: Colors.pinkAccent, size: 22),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      const Text("마감일",
-                                          style: TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.white70)),
-                                      Text(
-                                        vm.formattedDueDate,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: vm.isOverdue()
-                                              ? Colors.redAccent
-                                              : Colors.white,
-                                        ),
-                                      ),
-                                    ],
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_today,
+                                  color: Colors.pinkAccent, size: 22),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  vm.formattedDueDate,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: vm.isOverdue()
+                                        ? Colors.redAccent
+                                        : Colors.white,
                                   ),
                                 ),
-                                const Icon(Icons.arrow_forward_ios,
-                                    size: 16, color: Colors.white54),
-                              ],
-                            ),
+                              ),
+                              const Icon(Icons.arrow_forward_ios,
+                                  size: 16, color: Colors.white54),
+                            ],
                           ),
                         ),
-                      ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 400.ms)
+                          .slideX(begin: 0.2),
 
                       // 📌 저장 버튼
-                      Expanded(
-                        child: Hero(
-                          tag: 'save-hero',
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: vm.isLoading
-                                ? Container(
-                              key: const ValueKey('loading'),
-                              height: 56,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.lightGreenAccent
-                                    .withOpacity(0.85),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              alignment: Alignment.center,
-                              child: const CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.black),
-                                strokeWidth: 3,
-                              ),
-                            )
-                                : SizedBox(
-                              key: const ValueKey('button'),
-                              width: double.infinity,
-                              height: 56,
-                              child: ElevatedButton.icon(
-                                onPressed:
-                                vm.isInputValid && !vm.isLoading
-                                    ? () => _save(context)
-                                    : null,
-                                icon: const Icon(Icons.save),
-                                label: const Text('저장하기'),
-                                style: ElevatedButton.styleFrom(
-                                  textStyle: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold),
-                                  backgroundColor: vm.isInputValid
-                                      ? Colors.lightGreenAccent
-                                      .withOpacity(0.85)
-                                      : Colors.grey.shade700,
-                                  foregroundColor: Colors.black,
-                                  disabledBackgroundColor:
-                                  Colors.grey.shade800,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                    BorderRadius.circular(16),
-                                  ),
-                                ),
-                              ),
+                      const Spacer(),
+                      Hero(
+                        tag: 'save-hero',
+                        child: ElevatedButton.icon(
+                          onPressed: vm.isInputValid && !vm.isLoading
+                              ? () => _save(context)
+                              : null,
+                          icon: const Icon(Icons.save),
+                          label: const Text('저장하기'),
+                          style: ElevatedButton.styleFrom(
+                            textStyle: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                            backgroundColor: vm.isInputValid
+                                ? Colors.lightGreenAccent.withOpacity(0.85)
+                                : Colors.grey.shade700,
+                            foregroundColor: Colors.black,
+                            disabledBackgroundColor: Colors.grey.shade800,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                         ),
-                      ),
+                      )
+                          .animate()
+                          .scale(duration: 400.ms, delay: 600.ms),
                     ],
                   ),
                 ),
