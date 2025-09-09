@@ -52,27 +52,28 @@ class _ListScreenState extends State<ListScreen>
   }) async {
     return await showDialog<bool>(
       context: context,
-      builder: (context) => ScaleTransition(
-        scale: CurvedAnimation(
-          parent: _fadeController,
-          curve: Curves.easeInOutBack,
-        ),
-        child: AlertDialog(
-          backgroundColor: Colors.white,
-          title: Text(title),
-          content: Text(content),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('취소'),
+      builder: (context) =>
+          ScaleTransition(
+            scale: CurvedAnimation(
+              parent: _fadeController,
+              curve: Curves.easeInOutBack,
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제'),
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              title: Text(title),
+              content: Text(content),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('취소'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('삭제'),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     ) ??
         false;
   }
@@ -85,25 +86,26 @@ class _ListScreenState extends State<ListScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Wrap(
-        children: [
-          _sortOptionTile(Icons.star, '즐겨찾기 우선', () {
-            viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
-            viewModel.notifyListeners();
-          }),
-          _sortOptionTile(Icons.access_time, '마감일순', () {
-            viewModel.todos.sort((a, b) {
-              return (a.dueDate ?? DateTime.now())
-                  .compareTo(b.dueDate ?? DateTime.now());
-            });
-            viewModel.notifyListeners();
-          }),
-          _sortOptionTile(Icons.done_all, '완료 항목 우선', () {
-            viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
-            viewModel.notifyListeners();
-          }),
-        ],
-      ),
+      builder: (_) =>
+          Wrap(
+            children: [
+              _sortOptionTile(Icons.star, '즐겨찾기 우선', () {
+                viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
+                viewModel.notifyListeners();
+              }),
+              _sortOptionTile(Icons.access_time, '마감일순', () {
+                viewModel.todos.sort((a, b) {
+                  return (a.dueDate ?? DateTime.now())
+                      .compareTo(b.dueDate ?? DateTime.now());
+                });
+                viewModel.notifyListeners();
+              }),
+              _sortOptionTile(Icons.done_all, '완료 항목 우선', () {
+                viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
+                viewModel.notifyListeners();
+              }),
+            ],
+          ),
     );
   }
 
@@ -176,7 +178,8 @@ class _ListScreenState extends State<ListScreen>
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const NoteScreen(
+                  builder: (_) =>
+                  const NoteScreen(
                     todoId: '',
                     todoTitle: '',
                   ),
@@ -225,7 +228,6 @@ class _ListScreenState extends State<ListScreen>
     );
   }
 
-  /// ---------------- UI BUILD ----------------
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<ListViewModel>();
@@ -350,7 +352,7 @@ class _ListScreenState extends State<ListScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: LinearProgressIndicator(
         value: viewModel.progress,
-        backgroundColor: Colors.black12,
+        backgroundColor: Colors.white,
         valueColor: const AlwaysStoppedAnimation<Color>(
             Colors.lightGreenAccent),
         minHeight: 6,
@@ -365,7 +367,7 @@ class _ListScreenState extends State<ListScreen>
         child: Center(
           child: Text(
             '할 일이 없습니다.',
-            style: TextStyle(color: Colors.blue, fontSize: 18),
+            style: TextStyle(color: Colors.red, fontSize: 18),
           ),
         ),
       );
@@ -377,10 +379,17 @@ class _ListScreenState extends State<ListScreen>
         itemCount: viewModel.filteredTodos.length,
         itemBuilder: (context, index) {
           final todo = viewModel.filteredTodos[index];
-          final date =
-          DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
+          final date = DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
           final formattedDate =
               '${date.year}년 ${date.month}월 ${date.day}일';
+
+          // ✅ 글자 색상과 스타일 적용
+          final textColor = isDarkMode ? Colors.white : Colors.black;
+          final textStyle = TextStyle(
+            color: textColor,
+            decoration:
+            todo.isDone ? TextDecoration.lineThrough : TextDecoration.none,
+          );
 
           return SlideTransition(
             position: Tween<Offset>(
@@ -405,17 +414,28 @@ class _ListScreenState extends State<ListScreen>
                 color: Colors.redAccent,
                 child: const Icon(Icons.delete, color: Colors.white),
               ),
-              child: TodoItem(
-                todo: todo,
-                formattedDate: formattedDate,
-                onTapCallBack: viewModel.toggleDone,
-                onDelete: (todo) async {
-                  final shouldDelete = await _showConfirmDialog(
-                    title: "삭제 확인",
-                    content: "정말 이 항목을 삭제하시겠습니까?",
-                  );
-                  if (shouldDelete) viewModel.deleteTodo(todo);
-                },
+              child: ListTile(
+                onTap: () => viewModel.toggleDone(todo),
+                leading: todo.isDone
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : const Icon(Icons.check_circle_outline),
+                title: Text(todo.title, style: textStyle),
+                subtitle: Text(
+                  formattedDate,
+                  style: textStyle.copyWith(fontSize: 12),
+                ),
+                trailing: todo.isDone
+                    ? GestureDetector(
+                  onTap: () async {
+                    final shouldDelete = await _showConfirmDialog(
+                      title: "삭제 확인",
+                      content: "정말 이 항목을 삭제하시겠습니까?",
+                    );
+                    if (shouldDelete) viewModel.deleteTodo(todo);
+                  },
+                  child: const Icon(Icons.delete),
+                )
+                    : null,
               ),
             ),
           );
