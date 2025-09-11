@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lottie/lottie.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:rive/rive.dart' as rive; // ✅ alias 적용
 
 import 'add_view_model.dart';
 
@@ -57,7 +58,7 @@ class AddScreen extends StatelessWidget {
 
     await vm.saveTodo();
 
-    // ✅ 저장 성공 애니메이션 (Lottie + Snackbar)
+    // ✅ 저장 성공 애니메이션 (Lottie)
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -119,7 +120,7 @@ class AddScreen extends StatelessWidget {
           ),
           body: Stack(
             children: [
-              // 🔥 그라데이션 배경 + 블러
+              // 🔥 Flutter LinearGradient (rive와 충돌 X)
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
