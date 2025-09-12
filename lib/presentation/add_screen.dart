@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:lottie/lottie.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
-import 'package:rive/rive.dart' as rive; // ✅ alias 적용
+import 'package:confetti/confetti.dart';
 
 import 'add_view_model.dart';
 
@@ -39,6 +38,88 @@ class AddScreen extends StatelessWidget {
     }
   }
 
+  /// ✅ 세련된 저장 성공 다이얼로그 + Confetti 효과
+  void _showSuccessDialog(BuildContext context) {
+    final confettiController =
+    ConfettiController(duration: const Duration(seconds: 2));
+
+    confettiController.play();
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (_, __, ___) => Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Glass Dialog
+            Container(
+              width: 260,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  )
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.check_circle,
+                      size: 64, color: Colors.lightGreenAccent),
+                  SizedBox(height: 16),
+                  Text(
+                    "저장 성공!",
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "할 일이 정상적으로 저장되었습니다.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+
+            // 🎉 Confetti 애니메이션
+            ConfettiWidget(
+              confettiController: confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              colors: const [
+                Colors.greenAccent,
+                Colors.pinkAccent,
+                Colors.amber,
+                Colors.cyan,
+              ],
+              numberOfParticles: 25,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // 자동 닫기
+    Future.delayed(const Duration(seconds: 2), () {
+      confettiController.stop();
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
   void _save(BuildContext context) async {
     final vm = context.read<AddViewModel>();
 
@@ -58,21 +139,10 @@ class AddScreen extends StatelessWidget {
 
     await vm.saveTodo();
 
-    // ✅ 저장 성공 애니메이션 (Lottie)
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Center(
-        child: Lottie.asset(
-          'assets/lottie/success.json',
-          repeat: false,
-          width: 160,
-        ),
-      ),
-    );
+    // ✅ Confetti GlassDialog 실행
+    _showSuccessDialog(context);
 
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (context.mounted) Navigator.of(context).pop(); // 닫기
+    await Future.delayed(const Duration(milliseconds: 2000));
 
     final snackBar = SnackBar(
       backgroundColor: Colors.transparent,
@@ -120,7 +190,7 @@ class AddScreen extends StatelessWidget {
           ),
           body: Stack(
             children: [
-              // 🔥 Flutter LinearGradient (rive와 충돌 X)
+              // 🔥 배경 그라데이션 + 블러
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -264,7 +334,7 @@ class AddScreen extends StatelessWidget {
   }
 }
 
-// 재사용 카드 위젯
+// 재사용 GlassCard 위젯
 class GlassCard extends StatelessWidget {
   final Widget child;
   final Color? color;
