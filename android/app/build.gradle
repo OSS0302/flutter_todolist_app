@@ -50,6 +50,7 @@ android {
         versionCode 2
         versionName '1.0.1'
     }
+    ndkVersion "25.1.8937393"
 
     buildTypes {
         release {

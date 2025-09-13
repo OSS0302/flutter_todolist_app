@@ -24,7 +24,7 @@ class AddScreen extends StatelessWidget {
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Colors.tealAccent,
+              primary: Colors.deepPurpleAccent,
               onSurface: Colors.white,
             ),
             dialogBackgroundColor: Colors.black87,
@@ -38,7 +38,6 @@ class AddScreen extends StatelessWidget {
     }
   }
 
-  /// ✅ 세련된 저장 성공 다이얼로그 + Confetti 효과
   void _showSuccessDialog(BuildContext context) {
     final confettiController =
     ConfettiController(duration: const Duration(seconds: 2));
@@ -56,62 +55,66 @@ class AddScreen extends StatelessWidget {
           children: [
             // Glass Dialog
             Container(
-              width: 260,
-              padding: const EdgeInsets.all(20),
+              width: 280,
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.deepPurple.withOpacity(0.85),
+                    Colors.blueAccent.withOpacity(0.85),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  )
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8))
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.check_circle,
-                      size: 64, color: Colors.lightGreenAccent),
+                  Icon(Icons.celebration,
+                      size: 72, color: Colors.amberAccent),
                   SizedBox(height: 16),
                   Text(
-                    "저장 성공!",
+                    "저장 성공 🎉",
                     style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white),
                   ),
-                  SizedBox(height: 8),
+                  SizedBox(height: 10),
                   Text(
                     "할 일이 정상적으로 저장되었습니다.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: Colors.white70, fontSize: 15),
                   ),
                 ],
               ),
             ),
 
-            // 🎉 Confetti 애니메이션
+            // Confetti
             ConfettiWidget(
               confettiController: confettiController,
               blastDirectionality: BlastDirectionality.explosive,
               shouldLoop: false,
               colors: const [
-                Colors.greenAccent,
-                Colors.pinkAccent,
+                Colors.deepPurple,
                 Colors.amber,
-                Colors.cyan,
+                Colors.cyanAccent,
+                Colors.pinkAccent,
               ],
-              numberOfParticles: 25,
+              numberOfParticles: 30,
             ),
           ],
         ),
       ),
     );
 
-    // 자동 닫기
     Future.delayed(const Duration(seconds: 2), () {
       confettiController.stop();
       if (Navigator.of(context).canPop()) {
@@ -139,7 +142,6 @@ class AddScreen extends StatelessWidget {
 
     await vm.saveTodo();
 
-    // ✅ Confetti GlassDialog 실행
     _showSuccessDialog(context);
 
     await Future.delayed(const Duration(milliseconds: 2000));
@@ -175,7 +177,7 @@ class AddScreen extends StatelessWidget {
             title: AnimatedTextKit(
               animatedTexts: [
                 TypewriterAnimatedText(
-                  '📝 새로운 할 일 추가하기',
+                  '✨ 새로운 할 일 추가',
                   textStyle: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold),
                   speed: const Duration(milliseconds: 80),
@@ -190,18 +192,22 @@ class AddScreen extends StatelessWidget {
           ),
           body: Stack(
             children: [
-              // 🔥 배경 그라데이션 + 블러
+              // 배경
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF1A2980), Color(0xFF26D0CE)],
+                    colors: [
+                      Color(0xFF0f2027),
+                      Color(0xFF203a43),
+                      Color(0xFF2c5364),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                 ),
               ),
               BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
                 child: Container(color: Colors.black.withOpacity(0.25)),
               ),
 
@@ -214,8 +220,8 @@ class AddScreen extends StatelessWidget {
                       GlassCard(
                         child: Row(
                           children: [
-                            const Icon(Icons.edit_note,
-                                color: Colors.tealAccent, size: 26),
+                            const Icon(Icons.edit,
+                                color: Colors.deepPurpleAccent, size: 26),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextFormField(
@@ -272,7 +278,7 @@ class AddScreen extends StatelessWidget {
                           child: Row(
                             children: [
                               const Icon(Icons.calendar_today,
-                                  color: Colors.pinkAccent, size: 22),
+                                  color: Colors.amberAccent, size: 22),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -296,26 +302,53 @@ class AddScreen extends StatelessWidget {
                           .fadeIn(duration: 400.ms, delay: 400.ms)
                           .slideX(begin: 0.2),
 
-                      // 📌 저장 버튼
                       const Spacer(),
+
+                      // 📌 저장 버튼 (Gradient 버튼)
                       Hero(
                         tag: 'save-hero',
-                        child: ElevatedButton.icon(
+                        child: ElevatedButton(
                           onPressed: vm.isInputValid && !vm.isLoading
                               ? () => _save(context)
                               : null,
-                          icon: const Icon(Icons.save),
-                          label: const Text('저장하기'),
                           style: ElevatedButton.styleFrom(
-                            textStyle: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                            backgroundColor: vm.isInputValid
-                                ? Colors.lightGreenAccent.withOpacity(0.85)
-                                : Colors.grey.shade700,
-                            foregroundColor: Colors.black,
-                            disabledBackgroundColor: Colors.grey.shade800,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 14, horizontal: 32),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                          ).copyWith(
+                            backgroundColor:
+                            MaterialStateProperty.resolveWith((states) {
+                              if (states.contains(MaterialState.disabled)) {
+                                return Colors.grey.shade800;
+                              }
+                              return null;
+                            }),
+                          ),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF8E2DE2),
+                                  Color(0xFF4A00E0),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Container(
+                              alignment: Alignment.center,
+                              child: const Text(
+                                "저장하기",
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
+                              ),
                             ),
                           ),
                         ),
@@ -334,7 +367,7 @@ class AddScreen extends StatelessWidget {
   }
 }
 
-// 재사용 GlassCard 위젯
+// 📌 GlassCard 위젯
 class GlassCard extends StatelessWidget {
   final Widget child;
   final Color? color;
@@ -345,11 +378,17 @@ class GlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: color ?? Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 8,
+              offset: const Offset(4, 6)),
+        ],
       ),
       child: child,
     );
