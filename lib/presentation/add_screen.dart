@@ -246,30 +246,71 @@ class AddScreen extends StatelessWidget {
                           .slideY(begin: 0.2),
 
                       // 📌 우선순위 선택
+                      // 📌 우선순위 선택 (Dropdown 대신 ChoiceChip UI)
                       GlassCard(
-                        child: DropdownButtonFormField<String>(
-                          value: vm.selectedPriority,
-                          dropdownColor: Colors.black87,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            labelText: "우선순위",
-                            labelStyle: TextStyle(color: Colors.white70),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'high', child: Text('🔥 높음')),
-                            DropdownMenuItem(
-                                value: 'medium', child: Text('🌟 보통')),
-                            DropdownMenuItem(
-                                value: 'low', child: Text('🍃 낮음')),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "우선순위",
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 12,
+                              children: [
+                                ChoiceChip(
+                                  label: const Text("🔥 높음"),
+                                  selected: vm.selectedPriority == "high",
+                                  selectedColor: Colors.redAccent.withOpacity(0.8),
+                                  backgroundColor: Colors.white.withOpacity(0.05),
+                                  labelStyle: TextStyle(
+                                    color: vm.selectedPriority == "high"
+                                        ? Colors.white
+                                        : Colors.white70,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  onSelected: (_) => vm.setPriority("high"),
+                                ),
+                                ChoiceChip(
+                                  label: const Text("🌟 보통"),
+                                  selected: vm.selectedPriority == "medium",
+                                  selectedColor: Colors.amber.withOpacity(0.9),
+                                  backgroundColor: Colors.white.withOpacity(0.05),
+                                  labelStyle: TextStyle(
+                                    color: vm.selectedPriority == "medium"
+                                        ? Colors.black
+                                        : Colors.white70,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  onSelected: (_) => vm.setPriority("medium"),
+                                ),
+                                ChoiceChip(
+                                  label: const Text("🍃 낮음"),
+                                  selected: vm.selectedPriority == "low",
+                                  selectedColor: Colors.lightGreenAccent.withOpacity(0.9),
+                                  backgroundColor: Colors.white.withOpacity(0.05),
+                                  labelStyle: TextStyle(
+                                    color: vm.selectedPriority == "low"
+                                        ? Colors.black
+                                        : Colors.white70,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  onSelected: (_) => vm.setPriority("low"),
+                                ),
+                              ],
+                            ),
                           ],
-                          onChanged: (val) => vm.setPriority(val),
                         ),
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 200.ms)
                           .slideX(begin: -0.2),
+
 
                       // 📌 마감일 선택
                       GlassCard(
