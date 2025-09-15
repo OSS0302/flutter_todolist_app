@@ -246,7 +246,6 @@ class AddScreen extends StatelessWidget {
                           .slideY(begin: 0.2),
 
                       // 📌 우선순위 선택
-                      // 📌 우선순위 선택 (Dropdown 대신 ChoiceChip UI)
                       GlassCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,7 +260,7 @@ class AddScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             Wrap(
-                              spacing: 12,
+                              spacing: 35,
                               children: [
                                 ChoiceChip(
                                   label: const Text("🔥 높음"),
@@ -271,7 +270,7 @@ class AddScreen extends StatelessWidget {
                                   labelStyle: TextStyle(
                                     color: vm.selectedPriority == "high"
                                         ? Colors.white
-                                        : Colors.white70,
+                                        : Colors.black,   // ✅ 선택 안돼도 검은색
                                     fontWeight: FontWeight.bold,
                                   ),
                                   onSelected: (_) => vm.setPriority("high"),
@@ -284,7 +283,7 @@ class AddScreen extends StatelessWidget {
                                   labelStyle: TextStyle(
                                     color: vm.selectedPriority == "medium"
                                         ? Colors.black
-                                        : Colors.white70,
+                                        : Colors.black,   // ✅ 항상 검은색
                                     fontWeight: FontWeight.bold,
                                   ),
                                   onSelected: (_) => vm.setPriority("medium"),
@@ -297,7 +296,7 @@ class AddScreen extends StatelessWidget {
                                   labelStyle: TextStyle(
                                     color: vm.selectedPriority == "low"
                                         ? Colors.black
-                                        : Colors.white70,
+                                        : Colors.black,   // ✅ 항상 검은색
                                     fontWeight: FontWeight.bold,
                                   ),
                                   onSelected: (_) => vm.setPriority("low"),
@@ -310,6 +309,8 @@ class AddScreen extends StatelessWidget {
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 200.ms)
                           .slideX(begin: -0.2),
+
+
 
 
                       // 📌 마감일 선택
