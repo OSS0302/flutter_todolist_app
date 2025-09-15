@@ -14,8 +14,7 @@ class ListScreen extends StatefulWidget {
   State<ListScreen> createState() => _ListScreenState();
 }
 
-class _ListScreenState extends State<ListScreen>
-    with TickerProviderStateMixin {
+class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   bool isDarkMode = true;
 
@@ -51,29 +50,29 @@ class _ListScreenState extends State<ListScreen>
     required String content,
   }) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => ScaleTransition(
-        scale: CurvedAnimation(
-          parent: _fadeController,
-          curve: Curves.easeInOutBack,
-        ),
-        child: AlertDialog(
-          backgroundColor: Colors.white,
-          title: Text(title),
-          content: Text(content),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('취소'),
+          context: context,
+          builder: (context) => ScaleTransition(
+            scale: CurvedAnimation(
+              parent: _fadeController,
+              curve: Curves.easeInOutBack,
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제'),
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              title: Text(title),
+              content: Text(content),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('취소'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('삭제'),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    ) ??
+          ),
+        ) ??
         false;
   }
 
@@ -225,7 +224,6 @@ class _ListScreenState extends State<ListScreen>
     );
   }
 
-  /// ---------------- UI BUILD ----------------
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<ListViewModel>();
@@ -261,14 +259,14 @@ class _ListScreenState extends State<ListScreen>
               child: viewModel.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : Column(
-                children: [
-                  _buildSearchBar(viewModel),
-                  _buildFilterChips(viewModel),
-                  _buildProgressBar(viewModel),
-                  const SizedBox(height: 12),
-                  _buildTodoList(viewModel),
-                ],
-              ),
+                      children: [
+                        _buildSearchBar(viewModel),
+                        _buildFilterChips(viewModel),
+                        _buildProgressBar(viewModel),
+                        const SizedBox(height: 12),
+                        _buildTodoList(viewModel),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -282,12 +280,12 @@ class _ListScreenState extends State<ListScreen>
     return Container(
       decoration: isDarkMode
           ? const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.black, Colors.black87, Colors.black54],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      )
+              gradient: LinearGradient(
+                colors: [Colors.black, Colors.black87, Colors.black54],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            )
           : const BoxDecoration(color: Colors.white),
     );
   }
@@ -308,7 +306,7 @@ class _ListScreenState extends State<ListScreen>
           ),
           filled: true,
           fillColor:
-          isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05),
+              isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05),
           prefixIcon: Icon(Icons.search,
               color: isDarkMode ? Colors.white54 : Colors.black54),
           border: OutlineInputBorder(
@@ -350,9 +348,9 @@ class _ListScreenState extends State<ListScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: LinearProgressIndicator(
         value: viewModel.progress,
-        backgroundColor: Colors.black12,
-        valueColor: const AlwaysStoppedAnimation<Color>(
-            Colors.lightGreenAccent),
+        backgroundColor: Colors.white,
+        valueColor:
+            const AlwaysStoppedAnimation<Color>(Colors.lightGreenAccent),
         minHeight: 6,
       ),
     );
@@ -365,7 +363,7 @@ class _ListScreenState extends State<ListScreen>
         child: Center(
           child: Text(
             '할 일이 없습니다.',
-            style: TextStyle(color: Colors.blue, fontSize: 18),
+            style: TextStyle(color: Colors.red, fontSize: 18),
           ),
         ),
       );
@@ -377,11 +375,18 @@ class _ListScreenState extends State<ListScreen>
         itemCount: viewModel.filteredTodos.length,
         itemBuilder: (context, index) {
           final todo = viewModel.filteredTodos[index];
-          final date =
-          DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
-          final formattedDate =
-              '${date.year}년 ${date.month}월 ${date.day}일';
+          final date = DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
+          final formattedDate = '${date.year}년 ${date.month}월 ${date.day}일';
 
+          final textColor = todo.isDone
+              ? Colors.red
+              : (isDarkMode ? Colors.white : Colors.black);
+
+          final textStyle = TextStyle(
+            color: textColor,
+            decoration:
+            todo.isDone ? TextDecoration.lineThrough : TextDecoration.none,
+          );
           return SlideTransition(
             position: Tween<Offset>(
               begin: const Offset(1, 0),
@@ -405,17 +410,28 @@ class _ListScreenState extends State<ListScreen>
                 color: Colors.redAccent,
                 child: const Icon(Icons.delete, color: Colors.white),
               ),
-              child: TodoItem(
-                todo: todo,
-                formattedDate: formattedDate,
-                onTapCallBack: viewModel.toggleDone,
-                onDelete: (todo) async {
-                  final shouldDelete = await _showConfirmDialog(
-                    title: "삭제 확인",
-                    content: "정말 이 항목을 삭제하시겠습니까?",
-                  );
-                  if (shouldDelete) viewModel.deleteTodo(todo);
-                },
+              child: ListTile(
+                onTap: () => viewModel.toggleDone(todo),
+                leading: todo.isDone
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : const Icon(Icons.check_circle_outline),
+                title: Text(todo.title, style: textStyle),
+                subtitle: Text(
+                  formattedDate,
+                  style: textStyle.copyWith(fontSize: 12),
+                ),
+                trailing: todo.isDone
+                    ? GestureDetector(
+                        onTap: () async {
+                          final shouldDelete = await _showConfirmDialog(
+                            title: "삭제 확인",
+                            content: "정말 이 항목을 삭제하시겠습니까?",
+                          );
+                          if (shouldDelete) viewModel.deleteTodo(todo);
+                        },
+                        child: const Icon(Icons.delete),
+                      )
+                    : null,
               ),
             ),
           );
