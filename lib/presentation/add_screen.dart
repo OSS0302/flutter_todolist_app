@@ -265,12 +265,12 @@ class AddScreen extends StatelessWidget {
                                 ChoiceChip(
                                   label: const Text("🔥 높음"),
                                   selected: vm.selectedPriority == "high",
-                                  selectedColor: Colors.redAccent.withOpacity(0.8),
-                                  backgroundColor: Colors.white.withOpacity(0.05),
-                                  labelStyle: TextStyle(
-                                    color: vm.selectedPriority == "high"
-                                        ? Colors.white
-                                        : Colors.black,   // ✅ 선택 안돼도 검은색
+                                  selectedColor:
+                                  Colors.redAccent.withOpacity(0.8),
+                                  backgroundColor:
+                                  Colors.white.withOpacity(0.05),
+                                  labelStyle: const TextStyle(
+                                    color: Colors.black, // ✅ 항상 검은색
                                     fontWeight: FontWeight.bold,
                                   ),
                                   onSelected: (_) => vm.setPriority("high"),
@@ -278,12 +278,12 @@ class AddScreen extends StatelessWidget {
                                 ChoiceChip(
                                   label: const Text("🌟 보통"),
                                   selected: vm.selectedPriority == "medium",
-                                  selectedColor: Colors.amber.withOpacity(0.9),
-                                  backgroundColor: Colors.white.withOpacity(0.05),
-                                  labelStyle: TextStyle(
-                                    color: vm.selectedPriority == "medium"
-                                        ? Colors.black
-                                        : Colors.black,   // ✅ 항상 검은색
+                                  selectedColor:
+                                  Colors.amber.withOpacity(0.9),
+                                  backgroundColor:
+                                  Colors.white.withOpacity(0.05),
+                                  labelStyle: const TextStyle(
+                                    color: Colors.black, // ✅ 항상 검은색
                                     fontWeight: FontWeight.bold,
                                   ),
                                   onSelected: (_) => vm.setPriority("medium"),
@@ -291,12 +291,12 @@ class AddScreen extends StatelessWidget {
                                 ChoiceChip(
                                   label: const Text("🍃 낮음"),
                                   selected: vm.selectedPriority == "low",
-                                  selectedColor: Colors.lightGreenAccent.withOpacity(0.9),
-                                  backgroundColor: Colors.white.withOpacity(0.05),
-                                  labelStyle: TextStyle(
-                                    color: vm.selectedPriority == "low"
-                                        ? Colors.black
-                                        : Colors.black,   // ✅ 항상 검은색
+                                  selectedColor: Colors.lightGreenAccent
+                                      .withOpacity(0.9),
+                                  backgroundColor:
+                                  Colors.white.withOpacity(0.05),
+                                  labelStyle: const TextStyle(
+                                    color: Colors.black, // ✅ 항상 검은색
                                     fontWeight: FontWeight.bold,
                                   ),
                                   onSelected: (_) => vm.setPriority("low"),
@@ -309,9 +309,6 @@ class AddScreen extends StatelessWidget {
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 200.ms)
                           .slideX(begin: -0.2),
-
-
-
 
                       // 📌 마감일 선택
                       GlassCard(
