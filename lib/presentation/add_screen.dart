@@ -37,7 +37,8 @@ class AddScreen extends StatelessWidget {
   }
 
   void _showSuccessDialog(BuildContext context) {
-    final confettiController = ConfettiController(duration: const Duration(seconds: 2));
+    final confettiController =
+    ConfettiController(duration: const Duration(seconds: 2));
     confettiController.play();
 
     showGeneralDialog(
@@ -70,21 +71,30 @@ class AddScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.celebration, size: 72, color: Colors.amberAccent),
+                  Icon(Icons.celebration,
+                      size: 72, color: Colors.amberAccent),
                   SizedBox(height: 16),
                   Text("저장 성공 🎉",
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
                   SizedBox(height: 10),
                   Text("할 일이 정상적으로 저장되었습니다.",
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white70, fontSize: 15)),
                 ],
               ),
-            ),
+            ).animate().scale(duration: 400.ms).fadeIn(),
             ConfettiWidget(
               confettiController: confettiController,
               blastDirectionality: BlastDirectionality.explosive,
-              colors: [Colors.deepPurple, Colors.amber, Colors.cyanAccent, Colors.pinkAccent],
+              colors: [
+                Colors.deepPurple,
+                Colors.amber,
+                Colors.cyanAccent,
+                Colors.pinkAccent
+              ],
               numberOfParticles: 30,
             ),
           ],
@@ -125,7 +135,9 @@ class AddScreen extends StatelessWidget {
       elevation: 0,
       content: AwesomeSnackbarContent(
         title: vm.isDueToday() ? '📅 오늘 마감!' : '✅ 저장 완료',
-        message: vm.isDueToday() ? "오늘까지 해야 할 일이 추가되었어요!" : "할 일이 정상적으로 저장되었습니다.",
+        message: vm.isDueToday()
+            ? "오늘까지 해야 할 일이 추가되었어요!"
+            : "할 일이 정상적으로 저장되었습니다.",
         contentType: vm.isDueToday() ? ContentType.warning : ContentType.success,
       ),
     );
@@ -150,7 +162,10 @@ class AddScreen extends StatelessWidget {
               animatedTexts: [
                 TypewriterAnimatedText(
                   '✨ 새로운 할 일 추가',
-                  textStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                  textStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18),
                   speed: const Duration(milliseconds: 70),
                 ),
               ],
@@ -176,7 +191,6 @@ class AddScreen extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Container(color: Colors.black.withOpacity(0.25)),
               ),
-
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -186,17 +200,20 @@ class AddScreen extends StatelessWidget {
                       GlassCard(
                         child: Row(
                           children: [
-                            const Icon(Icons.edit, color: Colors.deepPurpleAccent, size: 26),
+                            const Icon(Icons.edit,
+                                color: Colors.deepPurpleAccent, size: 26),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextFormField(
                                 controller: vm.textController,
-                                style: const TextStyle(color: Colors.white, fontSize: 16),
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 16),
                                 maxLength: 100,
                                 decoration: InputDecoration(
                                   counterText: "",
                                   hintText: '할 일을 입력하세요...',
-                                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                                  hintStyle: TextStyle(
+                                      color: Colors.white.withOpacity(0.4)),
                                   border: InputBorder.none,
                                 ),
                               ),
@@ -205,13 +222,16 @@ class AddScreen extends StatelessWidget {
                         ),
                       ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2),
 
-                      // 📌 우선순위 선택 (더 고급스럽게 pill 버튼 느낌)
+                      // 📌 우선순위 선택
                       GlassCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text("우선순위",
-                                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 14)),
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14)),
                             const SizedBox(height: 12),
                             Wrap(
                               spacing: 15,
@@ -238,7 +258,10 @@ class AddScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                      ).animate().fadeIn(duration: 400.ms, delay: 200.ms).slideX(begin: -0.2),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 200.ms)
+                          .slideX(begin: -0.2),
 
                       // 📌 마감일 선택
                       GlassCard(
@@ -246,7 +269,8 @@ class AddScreen extends StatelessWidget {
                           onTap: () => _pickDueDate(context),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today, color: Colors.amberAccent, size: 22),
+                              const Icon(Icons.calendar_today,
+                                  color: Colors.amberAccent, size: 22),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -254,26 +278,36 @@ class AddScreen extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: vm.isOverdue() ? Colors.redAccent : Colors.white,
+                                    color: vm.isOverdue()
+                                        ? Colors.redAccent
+                                        : Colors.white,
                                   ),
                                 ),
                               ),
-                              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white54),
+                              const Icon(Icons.arrow_forward_ios,
+                                  size: 16, color: Colors.white54),
                             ],
                           ),
                         ),
-                      ).animate().fadeIn(duration: 400.ms, delay: 400.ms).slideX(begin: 0.2),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 400.ms)
+                          .slideX(begin: 0.2),
 
                       const Spacer(),
 
-                      // 📌 저장 버튼 (네온 글로우 효과)
+                      // 📌 저장 버튼
                       Hero(
                         tag: 'save-hero',
                         child: ElevatedButton(
-                          onPressed: vm.isInputValid && !vm.isLoading ? () => _save(context) : null,
+                          onPressed: vm.isInputValid && !vm.isLoading
+                              ? () => _save(context)
+                              : null,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 32),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25)),
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
                           ),
@@ -287,17 +321,25 @@ class AddScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(25),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.deepPurpleAccent.withOpacity(0.7),
+                                  color: Colors.deepPurpleAccent
+                                      .withOpacity(0.7),
                                   blurRadius: 15,
                                   spreadRadius: 1,
                                 ),
                               ],
-                            ),
+                            )
+                                .animate(
+                                onPlay: (controller) =>
+                                    controller.repeat(reverse: true))
+                                .shimmer(duration: 2.seconds),
                             child: Container(
                               alignment: Alignment.center,
                               child: const Text(
                                 "저장하기",
-                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
                               ),
                             ),
                           ),
@@ -315,30 +357,37 @@ class AddScreen extends StatelessWidget {
   }
 }
 
-// 📌 GlassCard (업그레이드된 디자인)
+// 📌 GlassCard
 class GlassCard extends StatelessWidget {
   final Widget child;
   const GlassCard({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(4, 6)),
-        ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(4, 6)),
+          ],
+        ),
+        child: child,
       ),
-      child: child,
     );
   }
 }
 
-// 📌 Custom PriorityChip (더 세련되게)
+// 📌 Custom PriorityChip
 class _PriorityChip extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -355,12 +404,18 @@ class _PriorityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChoiceChip(
-      label: Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.black : Colors.white70)),
+      label: Text(label,
+          style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isSelected ? Colors.black : Colors.white70)),
       selected: isSelected,
       selectedColor: color.withOpacity(0.9),
       backgroundColor: Colors.white.withOpacity(0.08),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
       onSelected: (_) => onTap(),
-    );
+    ).animate(target: isSelected ? 1 : 0).scale(
+        begin: const Offset(1, 1),
+        end: const Offset(1.1, 1.1),
+        duration: 300.ms);
   }
 }
