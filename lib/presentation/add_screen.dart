@@ -51,19 +51,19 @@ class AddScreen extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             Container(
-              width: 300,
+              width: 320,
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                  color: Colors.deepPurpleAccent.withOpacity(0.7),
+                  color: Colors.deepPurpleAccent.withOpacity(0.8),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.deepPurpleAccent.withOpacity(0.6),
-                    blurRadius: 20,
+                    color: Colors.deepPurpleAccent.withOpacity(0.8),
+                    blurRadius: 25,
                     spreadRadius: 2,
                   )
                 ],
@@ -71,15 +71,15 @@ class AddScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.celebration,
-                      size: 72, color: Colors.amberAccent),
-                  SizedBox(height: 16),
-                  Text("저장 성공 🎉",
+                  Icon(Icons.emoji_events,
+                      size: 80, color: Colors.amberAccent),
+                  SizedBox(height: 18),
+                  Text("저장 성공 ✨",
                       style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 26,
                           fontWeight: FontWeight.bold,
                           color: Colors.white)),
-                  SizedBox(height: 10),
+                  SizedBox(height: 12),
                   Text("할 일이 정상적으로 저장되었습니다.",
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white70, fontSize: 15)),
@@ -95,7 +95,7 @@ class AddScreen extends StatelessWidget {
                 Colors.cyanAccent,
                 Colors.pinkAccent
               ],
-              numberOfParticles: 30,
+              numberOfParticles: 35,
             ),
           ],
         ),
@@ -181,14 +181,14 @@ class AddScreen extends StatelessWidget {
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF141E30), Color(0xFF243B55)],
+                    colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                 ),
               ),
               BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                 child: Container(color: Colors.black.withOpacity(0.25)),
               ),
               SafeArea(
@@ -239,19 +239,25 @@ class AddScreen extends StatelessWidget {
                                 _PriorityChip(
                                   label: "🔥 높음",
                                   isSelected: vm.selectedPriority == "high",
-                                  color: Colors.redAccent,
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.redAccent, Colors.deepOrange],
+                                  ),
                                   onTap: () => vm.setPriority("high"),
                                 ),
                                 _PriorityChip(
                                   label: "🌟 보통",
                                   isSelected: vm.selectedPriority == "medium",
-                                  color: Colors.amber,
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.amber, Colors.orangeAccent],
+                                  ),
                                   onTap: () => vm.setPriority("medium"),
                                 ),
                                 _PriorityChip(
                                   label: "🍃 낮음",
                                   isSelected: vm.selectedPriority == "low",
-                                  color: Colors.lightGreenAccent,
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.greenAccent, Colors.teal],
+                                  ),
                                   onTap: () => vm.setPriority("low"),
                                 ),
                               ],
@@ -314,24 +320,19 @@ class AddScreen extends StatelessWidget {
                           child: Ink(
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                                colors: [Color(0xFF4776E6), Color(0xFF8E54E9)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(25),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.deepPurpleAccent
-                                      .withOpacity(0.7),
-                                  blurRadius: 15,
-                                  spreadRadius: 1,
+                                  color: Colors.purpleAccent.withOpacity(0.7),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
                                 ),
                               ],
-                            )
-                                .animate(
-                                onPlay: (controller) =>
-                                    controller.repeat(reverse: true))
-                                .shimmer(duration: 2.seconds),
+                            ),
                             child: Container(
                               alignment: Alignment.center,
                               child: const Text(
@@ -364,40 +365,37 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(4, 6)),
-          ],
-        ),
-        child: child,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.deepPurple.withOpacity(0.4),
+              blurRadius: 15,
+              offset: const Offset(3, 5)),
+        ],
       ),
+      child: child,
     );
   }
 }
 
-// 📌 Custom PriorityChip
+// 📌 Custom Gradient PriorityChip
 class _PriorityChip extends StatelessWidget {
   final String label;
   final bool isSelected;
-  final Color color;
+  final LinearGradient gradient;
   final VoidCallback onTap;
 
   const _PriorityChip({
     required this.label,
     required this.isSelected,
-    required this.color,
+    required this.gradient,
     required this.onTap,
   });
 
@@ -409,13 +407,21 @@ class _PriorityChip extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: isSelected ? Colors.black : Colors.white70)),
       selected: isSelected,
-      selectedColor: color.withOpacity(0.9),
+      selectedColor: Colors.transparent,
       backgroundColor: Colors.white.withOpacity(0.08),
+      avatar: isSelected
+          ? const Icon(Icons.check, size: 18, color: Colors.black)
+          : null,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
       onSelected: (_) => onTap(),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
     ).animate(target: isSelected ? 1 : 0).scale(
         begin: const Offset(1, 1),
         end: const Offset(1.1, 1.1),
-        duration: 300.ms);
+        duration: 300.ms).then().shimmer(
+        duration: 1.seconds,
+        colors: gradient.colors,
+        delay: 100.ms,
+        curve: Curves.easeInOut);
   }
 }
