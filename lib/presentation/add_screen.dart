@@ -305,36 +305,33 @@ class AddScreen extends StatelessWidget {
                       // 📌 저장 버튼
                       Hero(
                         tag: 'save-hero',
-                        child: ElevatedButton(
-                          onPressed: vm.isInputValid && !vm.isLoading
-                              ? () => _save(context)
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 32),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25)),
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                          ),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF4776E6), Color(0xFF8E54E9)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(25),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.purpleAccent.withOpacity(0.7),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
+                        child: GestureDetector(
+                          onTapDown: (_) => vm.setPressed(true),
+                          onTapUp: (_) {
+                            vm.setPressed(false);
+                            if (vm.isInputValid && !vm.isLoading) _save(context);
+                          },
+                          child: AnimatedScale(
+                            scale: vm.isPressed ? 0.92 : 1.0,
+                            duration: const Duration(milliseconds: 150),
                             child: Container(
-                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 32),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF4776E6), Color(0xFF8E54E9)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(25),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.purpleAccent.withOpacity(0.7),
+                                    blurRadius: 20,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
                               child: const Text(
                                 "저장하기",
                                 style: TextStyle(
@@ -385,7 +382,7 @@ class GlassCard extends StatelessWidget {
   }
 }
 
-// 📌 Custom Gradient PriorityChip
+// 📌 Custom Gradient PriorityChip (3D 효과)
 class _PriorityChip extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -401,27 +398,33 @@ class _PriorityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label,
-          style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.black : Colors.white70)),
-      selected: isSelected,
-      selectedColor: Colors.transparent,
-      backgroundColor: Colors.white.withOpacity(0.08),
-      avatar: isSelected
-          ? const Icon(Icons.check, size: 18, color: Colors.black)
-          : null,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-      onSelected: (_) => onTap(),
-      labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-    ).animate(target: isSelected ? 1 : 0).scale(
-        begin: const Offset(1, 1),
-        end: const Offset(1.1, 1.1),
-        duration: 300.ms).then().shimmer(
-        duration: 1.seconds,
-        colors: gradient.colors,
-        delay: 100.ms,
-        curve: Curves.easeInOut);
+    return GestureDetector(
+      onTapDown: (_) => onTap(),
+      child: AnimatedScale(
+        scale: isSelected ? 1.08 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: ChoiceChip(
+          label: Text(label,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.black : Colors.white70)),
+          selected: isSelected,
+          selectedColor: Colors.transparent,
+          backgroundColor: Colors.white.withOpacity(0.08),
+          avatar: isSelected
+              ? const Icon(Icons.check, size: 18, color: Colors.black)
+              : null,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+              side: isSelected
+                  ? BorderSide(color: gradient.colors.first, width: 2)
+                  : BorderSide.none),
+          onSelected: (_) => onTap(),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        )
+            .animate(target: isSelected ? 1 : 0)
+            .shimmer(duration: 1.seconds, colors: gradient.colors),
+      ),
+    );
   }
 }
