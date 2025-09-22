@@ -33,15 +33,12 @@ class AddScreen extends StatelessWidget {
         );
       },
     );
-    if (picked != null) {
-      vm.setDueDate(picked);
-    }
+    if (picked != null) vm.setDueDate(picked);
   }
 
   void _showSuccessDialog(BuildContext context) {
     final confettiController =
     ConfettiController(duration: const Duration(seconds: 2));
-
     confettiController.play();
 
     showGeneralDialog(
@@ -53,62 +50,52 @@ class AddScreen extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Glass Dialog
             Container(
-              width: 280,
-              padding: const EdgeInsets.all(24),
+              width: 320,
+              padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.deepPurple.withOpacity(0.85),
-                    Colors.blueAccent.withOpacity(0.85),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: Colors.deepPurpleAccent.withOpacity(0.8),
+                  width: 2,
                 ),
-                borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8))
+                    color: Colors.deepPurpleAccent.withOpacity(0.8),
+                    blurRadius: 25,
+                    spreadRadius: 2,
+                  )
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.celebration,
-                      size: 72, color: Colors.amberAccent),
-                  SizedBox(height: 16),
-                  Text(
-                    "저장 성공 🎉",
-                    style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    "할 일이 정상적으로 저장되었습니다.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 15),
-                  ),
+                  Icon(Icons.emoji_events,
+                      size: 80, color: Colors.amberAccent),
+                  SizedBox(height: 18),
+                  Text("저장 성공 ✨",
+                      style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
+                  SizedBox(height: 12),
+                  Text("할 일이 정상적으로 저장되었습니다.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 15)),
                 ],
               ),
-            ),
-
-            // Confetti
+            ).animate().scale(duration: 400.ms).fadeIn(),
             ConfettiWidget(
               confettiController: confettiController,
               blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
+              colors: [
                 Colors.deepPurple,
                 Colors.amber,
                 Colors.cyanAccent,
-                Colors.pinkAccent,
+                Colors.pinkAccent
               ],
-              numberOfParticles: 30,
+              numberOfParticles: 35,
             ),
           ],
         ),
@@ -117,9 +104,7 @@ class AddScreen extends StatelessWidget {
 
     Future.delayed(const Duration(seconds: 2), () {
       confettiController.stop();
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
     });
   }
 
@@ -127,25 +112,24 @@ class AddScreen extends StatelessWidget {
     final vm = context.read<AddViewModel>();
 
     if (!vm.isInputValid) {
-      final snackBar = SnackBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        content: AwesomeSnackbarContent(
-          title: '⚠️ 입력 오류',
-          message: '할 일을 입력해주세요!',
-          contentType: ContentType.failure,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          content: AwesomeSnackbarContent(
+            title: '⚠️ 입력 오류',
+            message: '할 일을 입력해주세요!',
+            contentType: ContentType.failure,
+          ),
         ),
       );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
       return;
     }
 
     await vm.saveTodo();
-
     _showSuccessDialog(context);
 
     await Future.delayed(const Duration(milliseconds: 2000));
-
     final snackBar = SnackBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -179,8 +163,10 @@ class AddScreen extends StatelessWidget {
                 TypewriterAnimatedText(
                   '✨ 새로운 할 일 추가',
                   textStyle: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
-                  speed: const Duration(milliseconds: 80),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18),
+                  speed: const Duration(milliseconds: 70),
                 ),
               ],
               totalRepeatCount: 1,
@@ -192,25 +178,19 @@ class AddScreen extends StatelessWidget {
           ),
           body: Stack(
             children: [
-              // 배경
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF0f2027),
-                      Color(0xFF203a43),
-                      Color(0xFF2c5364),
-                    ],
+                    colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                 ),
               ),
               BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                 child: Container(color: Colors.black.withOpacity(0.25)),
               ),
-
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -240,66 +220,45 @@ class AddScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms)
-                          .slideY(begin: 0.2),
+                      ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2),
 
                       // 📌 우선순위 선택
                       GlassCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              "우선순위",
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
+                            const Text("우선순위",
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14)),
+                            const SizedBox(height: 12),
                             Wrap(
-                              spacing: 35,
+                              spacing: 15,
                               children: [
-                                ChoiceChip(
-                                  label: const Text("🔥 높음"),
-                                  selected: vm.selectedPriority == "high",
-                                  selectedColor: Colors.redAccent.withOpacity(0.8),
-                                  backgroundColor: Colors.white.withOpacity(0.05),
-                                  labelStyle: TextStyle(
-                                    color: vm.selectedPriority == "high"
-                                        ? Colors.white
-                                        : Colors.black,   // ✅ 선택 안돼도 검은색
-                                    fontWeight: FontWeight.bold,
+                                _PriorityChip(
+                                  label: "🔥 높음",
+                                  isSelected: vm.selectedPriority == "high",
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.redAccent, Colors.deepOrange],
                                   ),
-                                  onSelected: (_) => vm.setPriority("high"),
+                                  onTap: () => vm.setPriority("high"),
                                 ),
-                                ChoiceChip(
-                                  label: const Text("🌟 보통"),
-                                  selected: vm.selectedPriority == "medium",
-                                  selectedColor: Colors.amber.withOpacity(0.9),
-                                  backgroundColor: Colors.white.withOpacity(0.05),
-                                  labelStyle: TextStyle(
-                                    color: vm.selectedPriority == "medium"
-                                        ? Colors.black
-                                        : Colors.black,   // ✅ 항상 검은색
-                                    fontWeight: FontWeight.bold,
+                                _PriorityChip(
+                                  label: "🌟 보통",
+                                  isSelected: vm.selectedPriority == "medium",
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.amber, Colors.orangeAccent],
                                   ),
-                                  onSelected: (_) => vm.setPriority("medium"),
+                                  onTap: () => vm.setPriority("medium"),
                                 ),
-                                ChoiceChip(
-                                  label: const Text("🍃 낮음"),
-                                  selected: vm.selectedPriority == "low",
-                                  selectedColor: Colors.lightGreenAccent.withOpacity(0.9),
-                                  backgroundColor: Colors.white.withOpacity(0.05),
-                                  labelStyle: TextStyle(
-                                    color: vm.selectedPriority == "low"
-                                        ? Colors.black
-                                        : Colors.black,   // ✅ 항상 검은색
-                                    fontWeight: FontWeight.bold,
+                                _PriorityChip(
+                                  label: "🍃 낮음",
+                                  isSelected: vm.selectedPriority == "low",
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.greenAccent, Colors.teal],
                                   ),
-                                  onSelected: (_) => vm.setPriority("low"),
+                                  onTap: () => vm.setPriority("low"),
                                 ),
                               ],
                             ),
@@ -309,9 +268,6 @@ class AddScreen extends StatelessWidget {
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 200.ms)
                           .slideX(begin: -0.2),
-
-
-
 
                       // 📌 마감일 선택
                       GlassCard(
@@ -346,57 +302,47 @@ class AddScreen extends StatelessWidget {
 
                       const Spacer(),
 
-                      // 📌 저장 버튼 (Gradient 버튼)
+                      // 📌 저장 버튼
                       Hero(
                         tag: 'save-hero',
-                        child: ElevatedButton(
-                          onPressed: vm.isInputValid && !vm.isLoading
-                              ? () => _save(context)
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 14, horizontal: 32),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                          ).copyWith(
-                            backgroundColor:
-                            MaterialStateProperty.resolveWith((states) {
-                              if (states.contains(MaterialState.disabled)) {
-                                return Colors.grey.shade800;
-                              }
-                              return null;
-                            }),
-                          ),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF8E2DE2),
-                                  Color(0xFF4A00E0),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                        child: GestureDetector(
+                          onTapDown: (_) => vm.setPressed(true),
+                          onTapUp: (_) {
+                            vm.setPressed(false);
+                            if (vm.isInputValid && !vm.isLoading) _save(context);
+                          },
+                          child: AnimatedScale(
+                            scale: vm.isPressed ? 0.92 : 1.0,
+                            duration: const Duration(milliseconds: 150),
                             child: Container(
-                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 32),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF4776E6), Color(0xFF8E54E9)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(25),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.purpleAccent.withOpacity(0.7),
+                                    blurRadius: 20,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
                               child: const Text(
                                 "저장하기",
                                 style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 17,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white),
                               ),
                             ),
                           ),
                         ),
-                      )
-                          .animate()
-                          .scale(duration: 400.ms, delay: 600.ms),
+                      ).animate().scale(duration: 400.ms, delay: 600.ms),
                     ],
                   ),
                 ),
@@ -409,30 +355,76 @@ class AddScreen extends StatelessWidget {
   }
 }
 
-// 📌 GlassCard 위젯
+// 📌 GlassCard
 class GlassCard extends StatelessWidget {
   final Widget child;
-  final Color? color;
-
-  const GlassCard({super.key, required this.child, this.color});
+  const GlassCard({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(14),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color ?? Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.25),
-              blurRadius: 8,
-              offset: const Offset(4, 6)),
+              color: Colors.deepPurple.withOpacity(0.4),
+              blurRadius: 15,
+              offset: const Offset(3, 5)),
         ],
       ),
       child: child,
+    );
+  }
+}
+
+// 📌 Custom Gradient PriorityChip (3D 효과)
+class _PriorityChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final LinearGradient gradient;
+  final VoidCallback onTap;
+
+  const _PriorityChip({
+    required this.label,
+    required this.isSelected,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => onTap(),
+      child: AnimatedScale(
+        scale: isSelected ? 1.08 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: ChoiceChip(
+          label: Text(label,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.black : Colors.white70)),
+          selected: isSelected,
+          selectedColor: Colors.transparent,
+          backgroundColor: Colors.white.withOpacity(0.08),
+          avatar: isSelected
+              ? const Icon(Icons.check, size: 18, color: Colors.black)
+              : null,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+              side: isSelected
+                  ? BorderSide(color: gradient.colors.first, width: 2)
+                  : BorderSide.none),
+          onSelected: (_) => onTap(),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        )
+            .animate(target: isSelected ? 1 : 0)
+            .shimmer(duration: 1.seconds, colors: gradient.colors),
+      ),
     );
   }
 }

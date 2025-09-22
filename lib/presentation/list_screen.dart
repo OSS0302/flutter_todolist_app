@@ -4,8 +4,11 @@ import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:provider/provider.dart';
 import 'package:todolist/presentation/add_screen.dart';
 import 'package:todolist/presentation/note/note_screen.dart';
-import 'package:todolist/presentation/todo_item.dart';
 import 'package:todolist/presentation/list_view_model.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:percent_indicator/percent_indicator.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ListScreen extends StatefulWidget {
   const ListScreen({Key? key}) : super(key: key);
@@ -50,29 +53,29 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
     required String content,
   }) async {
     return await showDialog<bool>(
-          context: context,
-          builder: (context) => ScaleTransition(
-            scale: CurvedAnimation(
-              parent: _fadeController,
-              curve: Curves.easeInOutBack,
+      context: context,
+      builder: (context) => ScaleTransition(
+        scale: CurvedAnimation(
+          parent: _fadeController,
+          curve: Curves.easeInOutBack,
+        ),
+        child: AlertDialog(
+          backgroundColor: Colors.white,
+          title: Text(title),
+          content: Text(content),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('취소'),
             ),
-            child: AlertDialog(
-              backgroundColor: Colors.white,
-              title: Text(title),
-              content: Text(content),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('취소'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('삭제'),
-                ),
-              ],
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('삭제'),
             ),
-          ),
-        ) ??
+          ],
+        ),
+      ),
+    ) ??
         false;
   }
 
@@ -232,16 +235,16 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
       extendBodyBehindAppBar: true,
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
       appBar: AppBar(
-        title: const Hero(
+        title: Hero(
           tag: 'app_title',
           child: Material(
             color: Colors.transparent,
             child: Text(
               'TodoList',
-              style: TextStyle(
+              style: GoogleFonts.montserrat(
                 color: Colors.blue,
                 fontWeight: FontWeight.bold,
-                fontSize: 22,
+                fontSize: 24,
               ),
             ),
           ),
@@ -259,14 +262,14 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
               child: viewModel.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : Column(
-                      children: [
-                        _buildSearchBar(viewModel),
-                        _buildFilterChips(viewModel),
-                        _buildProgressBar(viewModel),
-                        const SizedBox(height: 12),
-                        _buildTodoList(viewModel),
-                      ],
-                    ),
+                children: [
+                  _buildSearchBar(viewModel),
+                  _buildFilterChips(viewModel),
+                  _buildProgressBar(viewModel),
+                  const SizedBox(height: 12),
+                  _buildTodoList(viewModel),
+                ],
+              ),
             ),
           ],
         ),
@@ -280,12 +283,12 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
     return Container(
       decoration: isDarkMode
           ? const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.black, Colors.black87, Colors.black54],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            )
+        gradient: LinearGradient(
+          colors: [Colors.black, Colors.black87, Colors.black54],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      )
           : const BoxDecoration(color: Colors.white),
     );
   }
@@ -306,7 +309,7 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
           ),
           filled: true,
           fillColor:
-              isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05),
+          isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05),
           prefixIcon: Icon(Icons.search,
               color: isDarkMode ? Colors.white54 : Colors.black54),
           border: OutlineInputBorder(
@@ -342,21 +345,31 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// 진행률 바
+  /// 진행률 바 (percent_indicator)
   Widget _buildProgressBar(ListViewModel viewModel) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: LinearProgressIndicator(
-        value: viewModel.progress,
-        backgroundColor: Colors.white,
-        valueColor:
-            const AlwaysStoppedAnimation<Color>(Colors.lightGreenAccent),
-        minHeight: 6,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: LinearPercentIndicator(
+        lineHeight: 12,
+        percent: viewModel.progress,
+        backgroundColor: Colors.grey.shade300,
+        progressColor: Colors.lightGreenAccent,
+        barRadius: const Radius.circular(12),
+        animation: true,
+        animationDuration: 600,
+        center: Text(
+          "${(viewModel.progress * 100).toStringAsFixed(0)}%",
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-  /// 할 일 리스트
+  /// 할 일 리스트 (Slidable + Animation)
   Widget _buildTodoList(ListViewModel viewModel) {
     if (viewModel.filteredTodos.isEmpty) {
       return const Expanded(
@@ -370,72 +383,80 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
     }
 
     return Expanded(
-      child: ListView.builder(
-        controller: _scrollController,
-        itemCount: viewModel.filteredTodos.length,
-        itemBuilder: (context, index) {
-          final todo = viewModel.filteredTodos[index];
-          final date = DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
-          final formattedDate = '${date.year}년 ${date.month}월 ${date.day}일';
+      child: AnimationLimiter(
+        child: ListView.builder(
+          controller: _scrollController,
+          itemCount: viewModel.filteredTodos.length,
+          itemBuilder: (context, index) {
+            final todo = viewModel.filteredTodos[index];
+            final date = DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
+            final formattedDate = '${date.year}년 ${date.month}월 ${date.day}일';
 
-          final textColor = todo.isDone
-              ? Colors.red
-              : (isDarkMode ? Colors.white : Colors.black);
+            final textColor = todo.isDone
+                ? Colors.red
+                : (isDarkMode ? Colors.white : Colors.black);
 
-          final textStyle = TextStyle(
-            color: textColor,
-            decoration:
-            todo.isDone ? TextDecoration.lineThrough : TextDecoration.none,
-          );
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-            ),
-            child: Dismissible(
-              key: Key(todo.key.toString()),
-              direction: DismissDirection.endToStart,
-              confirmDismiss: (_) async {
-                return await _showConfirmDialog(
-                  title: "삭제 확인",
-                  content: "정말 이 항목을 삭제하시겠습니까?",
-                );
-              },
-              onDismissed: (_) => viewModel.deleteTodo(todo),
-              background: Container(
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                color: Colors.redAccent,
-                child: const Icon(Icons.delete, color: Colors.white),
-              ),
-              child: ListTile(
-                onTap: () => viewModel.toggleDone(todo),
-                leading: todo.isDone
-                    ? const Icon(Icons.check_circle, color: Colors.green)
-                    : const Icon(Icons.check_circle_outline),
-                title: Text(todo.title, style: textStyle),
-                subtitle: Text(
-                  formattedDate,
-                  style: textStyle.copyWith(fontSize: 12),
+            final textStyle = GoogleFonts.notoSans(
+              color: textColor,
+              decoration:
+              todo.isDone ? TextDecoration.lineThrough : TextDecoration.none,
+              fontSize: 16,
+            );
+
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 400),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  child: Slidable(
+                    key: Key(todo.key.toString()),
+                    endActionPane: ActionPane(
+                      motion: const StretchMotion(),
+                      children: [
+                        SlidableAction(
+                          onPressed: (_) async {
+                            final shouldDelete = await _showConfirmDialog(
+                              title: "삭제 확인",
+                              content: "정말 이 항목을 삭제하시겠습니까?",
+                            );
+                            if (shouldDelete) viewModel.deleteTodo(todo);
+                          },
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          icon: Icons.delete,
+                          label: '삭제',
+                        ),
+                        SlidableAction(
+                          onPressed: (_) {
+                            viewModel.toggleFavorite(todo);
+                          },
+                          backgroundColor: Colors.amber,
+                          foregroundColor: Colors.white,
+                          icon: todo.isFavorite
+                              ? Icons.star
+                              : Icons.star_border,
+                          label: '즐겨찾기',
+                        ),
+                      ],
+                    ),
+                    child: ListTile(
+                      onTap: () => viewModel.toggleDone(todo),
+                      leading: todo.isDone
+                          ? const Icon(Icons.check_circle, color: Colors.green)
+                          : const Icon(Icons.check_circle_outline),
+                      title: Text(todo.title, style: textStyle),
+                      subtitle: Text(
+                        formattedDate,
+                        style: textStyle.copyWith(fontSize: 12),
+                      ),
+                    ),
+                  ),
                 ),
-                trailing: todo.isDone
-                    ? GestureDetector(
-                        onTap: () async {
-                          final shouldDelete = await _showConfirmDialog(
-                            title: "삭제 확인",
-                            content: "정말 이 항목을 삭제하시겠습니까?",
-                          );
-                          if (shouldDelete) viewModel.deleteTodo(todo);
-                        },
-                        child: const Icon(Icons.delete),
-                      )
-                    : null,
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
