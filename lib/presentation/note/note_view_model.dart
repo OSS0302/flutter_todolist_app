@@ -10,14 +10,14 @@ class NoteViewModel extends ChangeNotifier {
   final Box<Note> _noteBox;
 
   List<Note> _allNotes = []; // 원본 전체
-  List<Note> _notes = [];    // 필터/정렬된 목록
+  List<Note> _notes = []; // 필터/정렬된 목록
   bool _isLoading = false;
   String _searchQuery = '';
   SortType _sortType = SortType.latest;
 
   String _selectedTag = "all";
 
-  // 🆕 추가된 필터 상태
+  // 추가된 필터 상태
   bool _showOnlyPinned = false;
   bool _showArchived = false;
 
@@ -36,7 +36,7 @@ class NoteViewModel extends ChangeNotifier {
     loadNotes();
   }
 
-  // 📌 로딩 상태 헬퍼
+  // 로딩 상태 헬퍼
   Future<void> _withLoading(Future<void> Function() action) async {
     _isLoading = true;
     notifyListeners();
@@ -50,9 +50,8 @@ class NoteViewModel extends ChangeNotifier {
 
   Future<void> loadNotes() async {
     await _withLoading(() async {
-      _allNotes = _noteBox.values
-          .where((note) => note.todoId == todoId)
-          .toList();
+      _allNotes =
+          _noteBox.values.where((note) => note.todoId == todoId).toList();
       _applyFilters();
     });
   }
@@ -62,6 +61,7 @@ class NoteViewModel extends ChangeNotifier {
         String title = '',
         int? color,
         List<String>? tags,
+        List<String>? checklist, // ✅ 체크리스트 지원
       }) async {
     await _withLoading(() async {
       final newNote = Note(
@@ -74,6 +74,7 @@ class NoteViewModel extends ChangeNotifier {
         isArchived: false,
         color: color ?? Colors.orange[50]!.value,
         tags: tags ?? [],
+        checklist: checklist ?? [],
       );
 
       await _noteBox.put(newNote.id, newNote);
@@ -90,6 +91,7 @@ class NoteViewModel extends ChangeNotifier {
         bool? isPinned,
         bool? isArchived,
         List<String>? tags,
+        List<String>? checklist, // ✅ 체크리스트 지원
       }) async {
     await _withLoading(() async {
       final updatedNote = note.copyWith(
@@ -100,6 +102,7 @@ class NoteViewModel extends ChangeNotifier {
         isPinned: isPinned ?? note.isPinned,
         isArchived: isArchived ?? note.isArchived,
         tags: tags ?? note.tags,
+        checklist: checklist ?? note.checklist,
       );
 
       await _noteBox.put(updatedNote.id, updatedNote);
@@ -119,14 +122,53 @@ class NoteViewModel extends ChangeNotifier {
     });
   }
 
+  // 🆕 체크리스트 관련 메서드
+  void addChecklistItem(Note note, String item) {
+    final newList = [...(note.checklist ?? []), item];
+    updateNote(note, note.content, checklist: newList);
+  }
+
+  void updateChecklistItem(Note note, int index, String newItem) {
+    if (note.checklist == null || index < 0 || index >= note.checklist!.length)
+      return;
+    final newList = [...note.checklist!];
+    newList[index] = newItem;
+    updateNote(note, note.content, checklist: newList);
+  }
+
+  void removeChecklistItem(Note note, int index) {
+    if (note.checklist == null || index < 0 || index >= note.checklist!.length)
+      return;
+    final newList = [...note.checklist!]..removeAt(index);
+    updateNote(note, note.content, checklist: newList);
+  }
+
+  void toggleChecklistItem(Note note, int index) {
+    // ✅ 단순히 체크/해제는 문자열 앞에 [x] / [ ] 같은 표기로 관리 가능
+    if (note.checklist == null || index < 0 || index >= note.checklist!.length)
+      return;
+    final newList = [...note.checklist!];
+    final item = newList[index];
+    if (item.startsWith("[x] ")) {
+      newList[index] = item.replaceFirst("[x] ", "[ ] ");
+    } else if (item.startsWith("[ ] ")) {
+      newList[index] = item.replaceFirst("[ ] ", "[x] ");
+    } else {
+      newList[index] = "[ ] $item";
+    }
+    updateNote(note, note.content, checklist: newList);
+  }
+
+  // 핀 / 아카이브 토글
   void togglePin(Note note) {
-    updateNote(note, note.content, isPinned: !(note.isPinned ?? false));
+    updateNote(note, note.content, isPinned: !(note.isPinned));
   }
 
   void toggleArchive(Note note) {
-    updateNote(note, note.content, isArchived: !(note.isArchived ?? false));
+    updateNote(note, note.content, isArchived: !(note.isArchived));
   }
 
+  // 정렬 / 검색 / 태그
   void setSortType(SortType type) {
     _sortType = type;
     _applyFilters();
@@ -165,6 +207,7 @@ class NoteViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 필터/정렬 적용
   void _applyFilters() {
     _notes = _allNotes.where((note) {
       final matchesQuery = _searchQuery.isEmpty ||
@@ -174,15 +217,15 @@ class NoteViewModel extends ChangeNotifier {
       final matchesTag = (_selectedTag == "all") ||
           (note.tags?.contains(_selectedTag) ?? false);
 
-      if (_showOnlyPinned && !(note.isPinned ?? false)) return false;
-      if (!_showArchived && (note.isArchived ?? false)) return false;
+      if (_showOnlyPinned && !note.isPinned) return false;
+      if (!_showArchived && note.isArchived) return false;
 
       return matchesQuery && matchesTag;
     }).toList();
 
     _notes.sort((a, b) {
-      if ((a.isPinned ?? false) != (b.isPinned ?? false)) {
-        return (b.isPinned ?? false) ? 1 : -1;
+      if (a.isPinned != b.isPinned) {
+        return b.isPinned ? 1 : -1;
       }
       switch (_sortType) {
         case SortType.latest:
