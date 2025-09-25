@@ -12,6 +12,7 @@ import 'add_view_model.dart';
 class AddScreen extends StatelessWidget {
   const AddScreen({super.key});
 
+  // 📌 마감일 선택
   Future<void> _pickDueDate(BuildContext context) async {
     final vm = context.read<AddViewModel>();
     final now = DateTime.now();
@@ -36,6 +37,28 @@ class AddScreen extends StatelessWidget {
     if (picked != null) vm.setDueDate(picked);
   }
 
+  // 📌 알림 시간 선택
+  Future<void> _pickReminderTime(BuildContext context) async {
+    final vm = context.read<AddViewModel>();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: vm.reminderTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            timePickerTheme: const TimePickerThemeData(
+              backgroundColor: Colors.black87,
+              dialHandColor: Colors.deepPurpleAccent,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) vm.setReminderTime(picked);
+  }
+
+  // 📌 저장 성공 다이얼로그
   void _showSuccessDialog(BuildContext context) {
     final confettiController =
     ConfettiController(duration: const Duration(seconds: 2));
@@ -51,7 +74,7 @@ class AddScreen extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             Container(
-              width: 320,
+              width: 340,
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
@@ -108,6 +131,7 @@ class AddScreen extends StatelessWidget {
     });
   }
 
+  // 📌 저장 로직
   void _save(BuildContext context) async {
     final vm = context.read<AddViewModel>();
 
@@ -198,107 +222,140 @@ class AddScreen extends StatelessWidget {
                     children: [
                       // 📌 할 일 입력
                       GlassCard(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.edit,
-                                color: Colors.deepPurpleAccent, size: 26),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: vm.textController,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 16),
-                                maxLength: 100,
-                                decoration: InputDecoration(
-                                  counterText: "",
-                                  hintText: '할 일을 입력하세요...',
-                                  hintStyle: TextStyle(
-                                      color: Colors.white.withOpacity(0.4)),
-                                  border: InputBorder.none,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2),
-
-                      // 📌 우선순위 선택
-                      GlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("우선순위",
-                                style: TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14)),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 15,
-                              children: [
-                                _PriorityChip(
-                                  label: "🔥 높음",
-                                  isSelected: vm.selectedPriority == "high",
-                                  gradient: const LinearGradient(
-                                    colors: [Colors.redAccent, Colors.deepOrange],
-                                  ),
-                                  onTap: () => vm.setPriority("high"),
-                                ),
-                                _PriorityChip(
-                                  label: "🌟 보통",
-                                  isSelected: vm.selectedPriority == "medium",
-                                  gradient: const LinearGradient(
-                                    colors: [Colors.amber, Colors.orangeAccent],
-                                  ),
-                                  onTap: () => vm.setPriority("medium"),
-                                ),
-                                _PriorityChip(
-                                  label: "🍃 낮음",
-                                  isSelected: vm.selectedPriority == "low",
-                                  gradient: const LinearGradient(
-                                    colors: [Colors.greenAccent, Colors.teal],
-                                  ),
-                                  onTap: () => vm.setPriority("low"),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: 200.ms)
-                          .slideX(begin: -0.2),
-
-                      // 📌 마감일 선택
-                      GlassCard(
-                        child: InkWell(
-                          onTap: () => _pickDueDate(context),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.calendar_today,
-                                  color: Colors.amberAccent, size: 22),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  vm.formattedDueDate,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: vm.isOverdue()
-                                        ? Colors.redAccent
-                                        : Colors.white,
-                                  ),
-                                ),
-                              ),
-                              const Icon(Icons.arrow_forward_ios,
-                                  size: 16, color: Colors.white54),
-                            ],
+                        child: TextFormField(
+                          controller: vm.textController,
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          maxLength: 100,
+                          decoration: InputDecoration(
+                            icon: const Icon(Icons.edit,
+                                color: Colors.deepPurpleAccent),
+                            counterText: "",
+                            hintText: '할 일을 입력하세요...',
+                            hintStyle:
+                            TextStyle(color: Colors.white.withOpacity(0.4)),
+                            border: InputBorder.none,
                           ),
                         ),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: 400.ms)
-                          .slideX(begin: 0.2),
+                      ),
+
+                      // 📌 상세 설명
+                      GlassCard(
+                        child: TextFormField(
+                          controller: vm.detailController,
+                          style: const TextStyle(color: Colors.white70, fontSize: 14),
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            icon: Icon(Icons.notes, color: Colors.cyanAccent),
+                            hintText: '상세 설명을 입력하세요...',
+                            hintStyle:
+                            TextStyle(color: Colors.white54, fontSize: 14),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+
+                      // 📌 우선순위
+                      GlassCard(
+                        child: Wrap(
+                          spacing: 15,
+                          children: [
+                            _PriorityChip(
+                              label: "🔥 높음",
+                              isSelected: vm.selectedPriority == "high",
+                              gradient: const LinearGradient(
+                                colors: [Colors.redAccent, Colors.deepOrange],
+                              ),
+                              onTap: () => vm.setPriority("high"),
+                            ),
+                            _PriorityChip(
+                              label: "🌟 보통",
+                              isSelected: vm.selectedPriority == "medium",
+                              gradient: const LinearGradient(
+                                colors: [Colors.amber, Colors.orangeAccent],
+                              ),
+                              onTap: () => vm.setPriority("medium"),
+                            ),
+                            _PriorityChip(
+                              label: "🍃 낮음",
+                              isSelected: vm.selectedPriority == "low",
+                              gradient: const LinearGradient(
+                                colors: [Colors.greenAccent, Colors.teal],
+                              ),
+                              onTap: () => vm.setPriority("low"),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 📌 태그 입력
+                      GlassCard(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.tag, color: Colors.amberAccent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: vm.tagController,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: const InputDecoration(
+                                  hintText: '태그 입력 후 Enter',
+                                  border: InputBorder.none,
+                                  hintStyle:
+                                  TextStyle(color: Colors.white54, fontSize: 14),
+                                ),
+                                onSubmitted: (value) => vm.addTag(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        children: vm.tags
+                            .map((tag) => Chip(
+                          label: Text(tag),
+                          backgroundColor: Colors.white12,
+                          labelStyle:
+                          const TextStyle(color: Colors.white),
+                          deleteIcon: const Icon(Icons.close,
+                              color: Colors.white54, size: 16),
+                          onDeleted: () => vm.removeTag(tag),
+                        ))
+                            .toList(),
+                      ),
+
+                      // 📌 마감일 + 알림
+                      GlassCard(
+                        child: Column(
+                          children: [
+                            ListTile(
+                              onTap: () => _pickDueDate(context),
+                              leading: const Icon(Icons.calendar_today,
+                                  color: Colors.amberAccent),
+                              title: Text(
+                                vm.formattedDueDate,
+                                style: TextStyle(
+                                    color: vm.isOverdue()
+                                        ? Colors.redAccent
+                                        : Colors.white),
+                              ),
+                              trailing: const Icon(Icons.arrow_forward_ios,
+                                  size: 16, color: Colors.white54),
+                            ),
+                            ListTile(
+                              onTap: () => _pickReminderTime(context),
+                              leading: const Icon(Icons.alarm,
+                                  color: Colors.cyanAccent),
+                              title: Text(
+                                vm.formattedReminderTime,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              trailing: const Icon(Icons.arrow_forward_ios,
+                                  size: 16, color: Colors.white54),
+                            ),
+                          ],
+                        ),
+                      ),
 
                       const Spacer(),
 
@@ -342,7 +399,7 @@ class AddScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ).animate().scale(duration: 400.ms, delay: 600.ms),
+                      ),
                     ],
                   ),
                 ),
@@ -382,7 +439,7 @@ class GlassCard extends StatelessWidget {
   }
 }
 
-// 📌 Custom Gradient PriorityChip (3D 효과)
+// 📌 Custom PriorityChip
 class _PriorityChip extends StatelessWidget {
   final String label;
   final bool isSelected;
