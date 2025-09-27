@@ -28,11 +28,14 @@ class Note extends HiveObject {
   @HiveField(7)
   List<String>? tags;
 
-  int color;
-
   @HiveField(8)
   final bool isArchived;
 
+  @HiveField(9)
+  List<String>? checklist; // ✅ 체크리스트 항목들 추가
+
+  @HiveField(10)
+  int color; // 색상도 Hive에 저장하려면 Field 지정 필요
 
   Note({
     required this.id,
@@ -45,6 +48,7 @@ class Note extends HiveObject {
     this.tags,
     this.color = 0xFFFFF3E0,
     this.isArchived = false,
+    this.checklist, // ✅ 새로 추가
   });
 
   Note copyWith({
@@ -56,6 +60,7 @@ class Note extends HiveObject {
     int? color,
     List<String>? tags,
     bool? isArchived,
+    List<String>? checklist,
   }) {
     return Note(
       id: id,
@@ -68,8 +73,7 @@ class Note extends HiveObject {
       color: color ?? this.color,
       tags: tags ?? this.tags,
       isArchived: isArchived ?? this.isArchived,
-
+      checklist: checklist ?? this.checklist,
     );
   }
-
 }
