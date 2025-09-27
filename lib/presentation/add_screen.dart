@@ -8,7 +8,6 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:confetti/confetti.dart';
 
 import 'add_view_model.dart';
-
 class AddScreen extends StatelessWidget {
   const AddScreen({super.key});
 
