@@ -9,24 +9,30 @@ class NoteViewModel extends ChangeNotifier {
   final String todoTitle;
   final Box<Note> _noteBox;
 
-  List<Note> _allNotes = []; // 원본 전체
-  List<Note> _notes = []; // 필터/정렬된 목록
+  List<Note> _allNotes = [];
+  List<Note> _notes = [];
   bool _isLoading = false;
   String _searchQuery = '';
   SortType _sortType = SortType.latest;
 
   String _selectedTag = "all";
+  int? _selectedColor;
 
-  // 추가된 필터 상태
   bool _showOnlyPinned = false;
   bool _showArchived = false;
+  bool _showStarred = false;
+  bool _showTrash = false;
 
   List<Note> get notes => _notes;
   bool get isLoading => _isLoading;
   SortType get sortType => _sortType;
   String get selectedTag => _selectedTag;
+  int? get selectedColor => _selectedColor;
+
   bool get showOnlyPinned => _showOnlyPinned;
   bool get showArchived => _showArchived;
+  bool get showStarred => _showStarred;
+  bool get showTrash => _showTrash;
 
   NoteViewModel({
     required this.todoId,
@@ -36,24 +42,15 @@ class NoteViewModel extends ChangeNotifier {
     loadNotes();
   }
 
-  // 로딩 상태 헬퍼
-  Future<void> _withLoading(Future<void> Function() action) async {
+  Future<void> loadNotes() async {
     _isLoading = true;
     notifyListeners();
-    try {
-      await action();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
 
-  Future<void> loadNotes() async {
-    await _withLoading(() async {
-      _allNotes =
-          _noteBox.values.where((note) => note.todoId == todoId).toList();
-      _applyFilters();
-    });
+    _allNotes = _noteBox.values.where((note) => note.todoId == todoId).toList();
+
+    _applyFilters();
+    _isLoading = false;
+    notifyListeners();
   }
 
   Future<void> addNote(
@@ -61,26 +58,27 @@ class NoteViewModel extends ChangeNotifier {
         String title = '',
         int? color,
         List<String>? tags,
-        List<String>? checklist, // ✅ 체크리스트 지원
+        DateTime? reminder, required List<String> checklist, // 🆕 리마인더
       }) async {
-    await _withLoading(() async {
-      final newNote = Note(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        todoId: todoId,
-        title: title,
-        content: content,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        isPinned: false,
-        isArchived: false,
-        color: color ?? Colors.orange[50]!.value,
-        tags: tags ?? [],
-        checklist: checklist ?? [],
-      );
+    final newNote = Note(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      todoId: todoId,
+      title: title,
+      content: content,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      isPinned: false,
+      isArchived: false,
+      isStarred: false, // 🆕 즐겨찾기
+      isDeleted: false, // 🆕 휴지통
+      color: color ?? Colors.orange[50]!.value,
+      tags: tags ?? [],
+      reminder: reminder?.millisecondsSinceEpoch,
+    );
 
-      await _noteBox.put(newNote.id, newNote);
-      _allNotes.add(newNote);
-      _applyFilters();
-    });
+    await _noteBox.put(newNote.id, newNote);
+    _allNotes.add(newNote);
+    _applyFilters();
+    notifyListeners();
   }
 
   Future<void> updateNote(
@@ -90,85 +88,86 @@ class NoteViewModel extends ChangeNotifier {
         int? color,
         bool? isPinned,
         bool? isArchived,
+        bool? isStarred,
+        bool? isDeleted,
         List<String>? tags,
-        List<String>? checklist, // ✅ 체크리스트 지원
+        DateTime? reminder, required List<String> checklist,
       }) async {
-    await _withLoading(() async {
-      final updatedNote = note.copyWith(
-        title: title ?? note.title,
-        content: content,
-        updatedAt: DateTime.now().millisecondsSinceEpoch,
-        color: color ?? note.color,
-        isPinned: isPinned ?? note.isPinned,
-        isArchived: isArchived ?? note.isArchived,
-        tags: tags ?? note.tags,
-        checklist: checklist ?? note.checklist,
-      );
+    final updatedNote = note.copyWith(
+      title: title ?? note.title,
+      content: content,
+      updatedAt: DateTime.now().millisecondsSinceEpoch,
+      color: color ?? note.color,
+      isPinned: isPinned ?? note.isPinned,
+      isArchived: isArchived ?? note.isArchived,
+      isStarred: isStarred ?? note.isStarred,
+      isDeleted: isDeleted ?? note.isDeleted,
+      tags: tags ?? note.tags,
+      reminder: reminder?.millisecondsSinceEpoch ?? note.reminder,
+    );
 
-      await _noteBox.put(updatedNote.id, updatedNote);
-      final index = _allNotes.indexWhere((n) => n.id == note.id);
-      if (index != -1) {
-        _allNotes[index] = updatedNote;
-        _applyFilters();
-      }
-    });
+    await _noteBox.put(updatedNote.id, updatedNote);
+    final index = _allNotes.indexWhere((n) => n.id == note.id);
+    if (index != -1) {
+      _allNotes[index] = updatedNote;
+      _applyFilters();
+      notifyListeners();
+    }
   }
 
   Future<void> deleteNote(Note note) async {
-    await _withLoading(() async {
-      await _noteBox.delete(note.id);
-      _allNotes.removeWhere((n) => n.id == note.id);
+    final updatedNote = note.copyWith(
+      isDeleted: true,
+      updatedAt: DateTime.now().millisecondsSinceEpoch,
+    );
+
+    await _noteBox.put(updatedNote.id, updatedNote);
+
+    final index = _allNotes.indexWhere((n) => n.id == note.id);
+    if (index != -1) {
+      _allNotes[index] = updatedNote;
       _applyFilters();
-    });
-  }
-
-  // 🆕 체크리스트 관련 메서드
-  void addChecklistItem(Note note, String item) {
-    final newList = [...(note.checklist ?? []), item];
-    updateNote(note, note.content, checklist: newList);
-  }
-
-  void updateChecklistItem(Note note, int index, String newItem) {
-    if (note.checklist == null || index < 0 || index >= note.checklist!.length)
-      return;
-    final newList = [...note.checklist!];
-    newList[index] = newItem;
-    updateNote(note, note.content, checklist: newList);
-  }
-
-  void removeChecklistItem(Note note, int index) {
-    if (note.checklist == null || index < 0 || index >= note.checklist!.length)
-      return;
-    final newList = [...note.checklist!]..removeAt(index);
-    updateNote(note, note.content, checklist: newList);
-  }
-
-  void toggleChecklistItem(Note note, int index) {
-    // ✅ 단순히 체크/해제는 문자열 앞에 [x] / [ ] 같은 표기로 관리 가능
-    if (note.checklist == null || index < 0 || index >= note.checklist!.length)
-      return;
-    final newList = [...note.checklist!];
-    final item = newList[index];
-    if (item.startsWith("[x] ")) {
-      newList[index] = item.replaceFirst("[x] ", "[ ] ");
-    } else if (item.startsWith("[ ] ")) {
-      newList[index] = item.replaceFirst("[ ] ", "[x] ");
-    } else {
-      newList[index] = "[ ] $item";
+      notifyListeners();
     }
-    updateNote(note, note.content, checklist: newList);
   }
 
-  // 핀 / 아카이브 토글
+// 휴지통에서 영구 삭제 (하드 삭제)
+  Future<void> permanentlyDelete(Note note) async {
+    await _noteBox.delete(note.id);
+    _allNotes.removeWhere((n) => n.id == note.id);
+    _applyFilters();
+    notifyListeners();
+  }
+
+// 휴지통에서 복구
+  Future<void> restoreNote(Note note) async {
+    final updatedNote = note.copyWith(
+      isDeleted: false,
+      updatedAt: DateTime.now().millisecondsSinceEpoch,
+    );
+
+    await _noteBox.put(updatedNote.id, updatedNote);
+
+    final index = _allNotes.indexWhere((n) => n.id == note.id);
+    if (index != -1) {
+      _allNotes[index] = updatedNote;
+      _applyFilters();
+      notifyListeners();
+    }
+  }
+
   void togglePin(Note note) {
-    updateNote(note, note.content, isPinned: !(note.isPinned));
+    updateNote(note, note.content, isPinned: !(note.isPinned ?? false), checklist: []);
   }
 
   void toggleArchive(Note note) {
-    updateNote(note, note.content, isArchived: !(note.isArchived));
+    updateNote(note, note.content, isArchived: !(note.isArchived ?? false), checklist: []);
   }
 
-  // 정렬 / 검색 / 태그
+  void toggleStar(Note note) {
+    updateNote(note, note.content, isStarred: !(note.isStarred ?? false), checklist: []);
+  }
+
   void setSortType(SortType type) {
     _sortType = type;
     _applyFilters();
@@ -187,6 +186,12 @@ class NoteViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setColorFilter(int? color) {
+    _selectedColor = color;
+    _applyFilters();
+    notifyListeners();
+  }
+
   List<String> getAllTags() {
     final tags = <String>{};
     for (final n in _allNotes) {
@@ -195,6 +200,7 @@ class NoteViewModel extends ChangeNotifier {
     return tags.toList();
   }
 
+  // 🆕 필터 토글
   void togglePinnedFilter() {
     _showOnlyPinned = !_showOnlyPinned;
     _applyFilters();
@@ -207,25 +213,65 @@ class NoteViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 필터/정렬 적용
+  void toggleStarredFilter() {
+    _showStarred = !_showStarred;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void toggleTrashFilter() {
+    _showTrash = !_showTrash;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  // 🆕 통계 기능
+  Map<String, int> getTagStats() {
+    final Map<String, int> stats = {};
+    for (final n in _allNotes) {
+      if (n.tags != null) {
+        for (final t in n.tags!) {
+          stats[t] = (stats[t] ?? 0) + 1;
+        }
+      }
+    }
+    return stats;
+  }
+
+  Map<int, int> getColorStats() {
+    final Map<int, int> stats = {};
+    for (final n in _allNotes) {
+      stats[n.color] = (stats[n.color] ?? 0) + 1;
+    }
+    return stats;
+  }
+
   void _applyFilters() {
     _notes = _allNotes.where((note) {
+      if (!_showTrash && (note.isDeleted ?? false)) return false;
+      if (!_showArchived && (note.isArchived ?? false)) return false;
+      if (_showOnlyPinned && !(note.isPinned ?? false)) return false;
+      if (_showStarred && !(note.isStarred ?? false)) return false;
+
       final matchesQuery = _searchQuery.isEmpty ||
           note.title.contains(_searchQuery) ||
           note.content.contains(_searchQuery);
 
-      final matchesTag = (_selectedTag == "all") ||
-          (note.tags?.contains(_selectedTag) ?? false);
+      final matchesTag =
+          (_selectedTag == "all") || (note.tags?.contains(_selectedTag) ?? false);
 
-      if (_showOnlyPinned && !note.isPinned) return false;
-      if (!_showArchived && note.isArchived) return false;
+      final matchesColor =
+          (_selectedColor == null) || note.color == _selectedColor;
 
-      return matchesQuery && matchesTag;
+      return matchesQuery && matchesTag && matchesColor;
     }).toList();
 
     _notes.sort((a, b) {
-      if (a.isPinned != b.isPinned) {
-        return b.isPinned ? 1 : -1;
+      if ((a.isPinned ?? false) != (b.isPinned ?? false)) {
+        return (b.isPinned ?? false) ? 1 : -1;
+      }
+      if ((a.isStarred ?? false) != (b.isStarred ?? false)) {
+        return (b.isStarred ?? false) ? 1 : -1;
       }
       switch (_sortType) {
         case SortType.latest:

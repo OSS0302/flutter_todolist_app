@@ -28,13 +28,16 @@ class NoteAdapter extends TypeAdapter<Note> {
       color: fields[10] as int,
       isArchived: fields[8] as bool,
       checklist: (fields[9] as List?)?.cast<String>(),
+      isStarred: fields[11] as bool,
+      isDeleted: fields[12] as bool,
+      reminder: fields[13] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +59,13 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..writeByte(9)
       ..write(obj.checklist)
       ..writeByte(10)
-      ..write(obj.color);
+      ..write(obj.color)
+      ..writeByte(11)
+      ..write(obj.isStarred)
+      ..writeByte(12)
+      ..write(obj.isDeleted)
+      ..writeByte(13)
+      ..write(obj.reminder);
   }
 
   @override
