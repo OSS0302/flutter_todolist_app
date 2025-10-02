@@ -239,6 +239,37 @@ class AddScreen extends StatelessWidget {
                         ),
                       ),
 
+                      // 📌 체크리스트
+                      GlassCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("체크리스트",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15)),
+                            ...vm.checklist.map((item) => CheckboxListTile(
+                              value: item["done"],
+                              onChanged: (val) =>
+                                  vm.toggleChecklist(item["id"], val ?? false),
+                              title: Text(item["text"],
+                                  style: const TextStyle(color: Colors.white70)),
+                            )),
+                            TextField(
+                              controller: vm.checklistController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: const InputDecoration(
+                                hintText: "체크리스트 입력 후 Enter",
+                                hintStyle: TextStyle(color: Colors.white54),
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (_) => vm.addChecklist(),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       // 📌 우선순위
                       GlassCard(
                         child: Wrap(
@@ -306,6 +337,28 @@ class AddScreen extends StatelessWidget {
                           onDeleted: () => vm.removeTag(tag),
                         ))
                             .toList(),
+                      ),
+
+                      // 📌 색상 선택
+                      GlassCard(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.color_lens, color: Colors.pinkAccent),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 10,
+                                children: [
+                                  _colorDot(vm, Colors.red),
+                                  _colorDot(vm, Colors.green),
+                                  _colorDot(vm, Colors.blue),
+                                  _colorDot(vm, Colors.orange),
+                                  _colorDot(vm, Colors.purple),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       // 📌 마감일 + 알림
@@ -392,6 +445,27 @@ class AddScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  // 📌 색상 선택 원형 버튼
+  Widget _colorDot(AddViewModel vm, Color color) {
+    return GestureDetector(
+      onTap: () => vm.setColor(color.value),
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: vm.selectedColor == color.value
+                ? Colors.white
+                : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
     );
   }
 }
