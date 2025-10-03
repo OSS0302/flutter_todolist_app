@@ -8,6 +8,7 @@ class AddViewModel extends ChangeNotifier {
   final textController = TextEditingController();
   final detailController = TextEditingController();
   final tagController = TextEditingController();
+  final checklistController = TextEditingController(); // ✅ 체크리스트 입력용
 
   /// 상태
   DateTime? selectedDueDate;
@@ -19,6 +20,13 @@ class AddViewModel extends ChangeNotifier {
   /// 태그 리스트
   final List<String> _tags = [];
   List<String> get tags => List.unmodifiable(_tags);
+
+  /// 체크리스트
+  final List<Map<String, dynamic>> _checklist = [];
+  List<Map<String, dynamic>> get checklist => List.unmodifiable(_checklist);
+
+  /// 색상 선택
+  int selectedColor = Colors.blue.value;
 
   /// ✅ 유효성 검사
   bool get isInputValid => textController.text.trim().isNotEmpty;
@@ -55,6 +63,34 @@ class AddViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 📌 색상 설정
+  void setColor(int color) {
+    selectedColor = color;
+    notifyListeners();
+  }
+
+  /// 📌 체크리스트 추가
+  void addChecklist() {
+    final text = checklistController.text.trim();
+    if (text.isEmpty) return;
+    _checklist.add({
+      "id": DateTime.now().millisecondsSinceEpoch,
+      "text": text,
+      "done": false,
+    });
+    checklistController.clear();
+    notifyListeners();
+  }
+
+  /// 📌 체크리스트 토글
+  void toggleChecklist(int id, bool done) {
+    final idx = _checklist.indexWhere((e) => e["id"] == id);
+    if (idx != -1) {
+      _checklist[idx]["done"] = done;
+      notifyListeners();
+    }
+  }
+
   /// 📌 오늘 마감 여부
   bool isDueToday() {
     if (selectedDueDate == null) return false;
@@ -68,7 +104,7 @@ class AddViewModel extends ChangeNotifier {
     return selectedDueDate!.isBefore(DateTime(now.year, now.month, now.day));
   }
 
-  /// 📌 버튼 눌림 상태 업데이트 (3D Motion 효과용)
+  /// 📌 버튼 눌림 상태 업데이트
   void setPressed(bool pressed) {
     isPressed = pressed;
     notifyListeners();
@@ -105,6 +141,7 @@ class AddViewModel extends ChangeNotifier {
       dateTime: DateTime.now().millisecondsSinceEpoch,
       dueDate: selectedDueDate,
       priority: selectedPriority,
+      // 필요하다면 색상, 태그, 체크리스트도 Todo 모델에 추가 가능
     ));
 
     isLoading = false;
@@ -116,5 +153,6 @@ class AddViewModel extends ChangeNotifier {
     textController.dispose();
     detailController.dispose();
     tagController.dispose();
+    checklistController.dispose();
   }
 }
