@@ -133,20 +133,39 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// SpeedDial 버튼
+  /// SpeedDial 버튼 (고급스럽고 세련된 버전)
   Widget _buildSpeedDial(ListViewModel viewModel) {
     return ScaleTransition(
       scale: _fadeAnimation,
       child: SpeedDial(
         animatedIcon: AnimatedIcons.menu_close,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        spacing: 10,
-        spaceBetweenChildren: 8,
+        curve: Curves.easeInOutBack,
+        overlayColor: Colors.black,
+        overlayOpacity: 0.4,
+        spaceBetweenChildren: 10,
+        childrenButtonSize: const Size(60, 60),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Colors.white, size: 28),
+
+        // 💎 Glass 느낌의 그라데이션 배경
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+
         children: [
+          // 🩵 할 일 추가
           SpeedDialChild(
-            child: const Icon(Icons.playlist_add),
-            backgroundColor: Colors.lightBlue,
+            backgroundColor: Colors.white.withOpacity(0.15),
+            labelBackgroundColor: Colors.black.withOpacity(0.6),
+            labelStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+            elevation: 6,
+            child: const Icon(Icons.playlist_add, color: Colors.white),
             label: '할 일 추가',
             onTap: () async {
               await Navigator.push(
@@ -155,24 +174,29 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
                   transitionDuration: const Duration(milliseconds: 500),
                   pageBuilder: (_, __, ___) => const AddScreen(),
                   transitionsBuilder: (_, animation, __, child) =>
-                      FadeTransition(
-                          opacity: CurvedAnimation(
-                              parent: animation, curve: Curves.easeInOut),
-                          child: child),
+                      FadeTransition(opacity: animation, child: child),
                 ),
               );
               viewModel.refresh();
             },
           ),
+
+          // 🔷 정렬 옵션
           SpeedDialChild(
-            child: const Icon(Icons.sort),
-            backgroundColor: Colors.teal,
+            backgroundColor: Colors.white.withOpacity(0.15),
+            labelBackgroundColor: Colors.black.withOpacity(0.6),
+            labelStyle: const TextStyle(color: Colors.white),
+            child: const Icon(Icons.sort, color: Colors.white),
             label: '정렬 옵션',
             onTap: () => _showSortOptions(viewModel),
           ),
+
+          // 🧡 메모장
           SpeedDialChild(
-            child: const Icon(Icons.note),
-            backgroundColor: Colors.orange,
+            backgroundColor: Colors.white.withOpacity(0.15),
+            labelBackgroundColor: Colors.black.withOpacity(0.6),
+            labelStyle: const TextStyle(color: Colors.white),
+            child: const Icon(Icons.note_alt_outlined, color: Colors.white),
             label: '메모장',
             onTap: () {
               Navigator.push(
@@ -186,18 +210,26 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
               );
             },
           ),
+
+          // ⭐ 즐겨찾기 필터
           SpeedDialChild(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            labelBackgroundColor: Colors.black.withOpacity(0.6),
+            labelStyle: const TextStyle(color: Colors.white),
             child: Icon(
               viewModel.showOnlyFavorites ? Icons.star : Icons.star_border,
-              color: Colors.yellow,
+              color: Colors.yellowAccent,
             ),
-            backgroundColor: Colors.amber,
             label: '즐겨찾기 필터',
-            onTap: () => viewModel.toggleFavoriteFilter(),
+            onTap: viewModel.toggleFavoriteFilter,
           ),
+
+          // ❌ 전체 삭제
           SpeedDialChild(
-            child: const Icon(Icons.delete_forever),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: Colors.redAccent.withOpacity(0.25),
+            labelBackgroundColor: Colors.black.withOpacity(0.6),
+            labelStyle: const TextStyle(color: Colors.white),
+            child: const Icon(Icons.delete_forever, color: Colors.redAccent),
             label: '전체 삭제',
             onTap: () async {
               final shouldDeleteAll = await _showConfirmDialog(
@@ -207,18 +239,26 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
               if (shouldDeleteAll) viewModel.clearAllTodos();
             },
           ),
+
+          // 🌙 다크모드 전환
           SpeedDialChild(
+            backgroundColor: Colors.deepPurple.withOpacity(0.3),
+            labelBackgroundColor: Colors.black.withOpacity(0.6),
+            labelStyle: const TextStyle(color: Colors.white),
             child: Icon(
               isDarkMode ? Icons.light_mode : Icons.dark_mode,
               color: Colors.white,
             ),
-            backgroundColor: Colors.purple,
             label: '다크모드 전환',
             onTap: () => setState(() => isDarkMode = !isDarkMode),
           ),
+
+          // ℹ️ 앱 정보
           SpeedDialChild(
-            child: const Icon(Icons.info_outline),
-            backgroundColor: Colors.indigo,
+            backgroundColor: Colors.indigo.withOpacity(0.3),
+            labelBackgroundColor: Colors.black.withOpacity(0.6),
+            labelStyle: const TextStyle(color: Colors.white),
+            child: const Icon(Icons.info_outline, color: Colors.white),
             label: '앱 정보',
             onTap: _showAboutDialog,
           ),
@@ -226,6 +266,7 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
