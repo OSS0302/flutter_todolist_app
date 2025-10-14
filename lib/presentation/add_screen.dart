@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
-import 'package:confetti/confetti.dart';
 
 import 'add_view_model.dart';
+
 class AddScreen extends StatelessWidget {
   const AddScreen({super.key});
 
@@ -57,77 +57,63 @@ class AddScreen extends StatelessWidget {
     if (picked != null) vm.setReminderTime(picked);
   }
 
-  // 📌 저장 성공 다이얼로그
-  void _showSuccessDialog(BuildContext context) {
-    final confettiController =
-    ConfettiController(duration: const Duration(seconds: 2));
-    confettiController.play();
-
+  // 📌 🎁 보상 팝업
+  void _showRewardDialog(BuildContext context) {
     showGeneralDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 400),
+      transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) => Center(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 340,
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(
-                  color: Colors.deepPurpleAccent.withOpacity(0.8),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.deepPurpleAccent.withOpacity(0.8),
-                    blurRadius: 25,
-                    spreadRadius: 2,
-                  )
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.emoji_events,
-                      size: 80, color: Colors.amberAccent),
-                  SizedBox(height: 18),
-                  Text("저장 성공 ✨",
-                      style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
-                  SizedBox(height: 12),
-                  Text("할 일이 정상적으로 저장되었습니다.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white70, fontSize: 15)),
-                ],
-              ),
-            ).animate().scale(duration: 400.ms).fadeIn(),
-            ConfettiWidget(
-              confettiController: confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              colors: [
-                Colors.deepPurple,
-                Colors.amber,
-                Colors.cyanAccent,
-                Colors.pinkAccent
-              ],
-              numberOfParticles: 35,
+        child: Container(
+          width: 300,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Colors.deepPurpleAccent, Colors.purple],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.6),
+                blurRadius: 15,
+                spreadRadius: 2,
+              )
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.stars, size: 80, color: Colors.amber),
+              const SizedBox(height: 12),
+              const Text(
+                "보상 획득! 🎉",
+                style: TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "코인 10점이 적립되었습니다!",
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text("확인", style: TextStyle(color: Colors.black)),
+              ),
+            ],
+          ),
         ),
       ),
     );
-
-    Future.delayed(const Duration(seconds: 2), () {
-      confettiController.stop();
-      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-    });
   }
 
   // 📌 저장 로직
@@ -150,9 +136,9 @@ class AddScreen extends StatelessWidget {
     }
 
     await vm.saveTodo();
-    _showSuccessDialog(context);
+    _showRewardDialog(context); // ✅ 저장 후 보상 팝업 호출
 
-    await Future.delayed(const Duration(milliseconds: 2000));
+    await Future.delayed(const Duration(milliseconds: 1800));
     final snackBar = SnackBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -253,6 +239,37 @@ class AddScreen extends StatelessWidget {
                         ),
                       ),
 
+                      // 📌 체크리스트
+                      GlassCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("체크리스트",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15)),
+                            ...vm.checklist.map((item) => CheckboxListTile(
+                              value: item["done"],
+                              onChanged: (val) =>
+                                  vm.toggleChecklist(item["id"], val ?? false),
+                              title: Text(item["text"],
+                                  style: const TextStyle(color: Colors.white70)),
+                            )),
+                            TextField(
+                              controller: vm.checklistController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: const InputDecoration(
+                                hintText: "체크리스트 입력 후 Enter",
+                                hintStyle: TextStyle(color: Colors.white54),
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (_) => vm.addChecklist(),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       // 📌 우선순위
                       GlassCard(
                         child: Wrap(
@@ -314,13 +331,34 @@ class AddScreen extends StatelessWidget {
                             .map((tag) => Chip(
                           label: Text(tag),
                           backgroundColor: Colors.white12,
-                          labelStyle:
-                          const TextStyle(color: Colors.white),
+                          labelStyle: const TextStyle(color: Colors.white),
                           deleteIcon: const Icon(Icons.close,
                               color: Colors.white54, size: 16),
                           onDeleted: () => vm.removeTag(tag),
                         ))
                             .toList(),
+                      ),
+
+                      // 📌 색상 선택
+                      GlassCard(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.color_lens, color: Colors.pinkAccent),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 10,
+                                children: [
+                                  _colorDot(vm, Colors.red),
+                                  _colorDot(vm, Colors.green),
+                                  _colorDot(vm, Colors.blue),
+                                  _colorDot(vm, Colors.orange),
+                                  _colorDot(vm, Colors.purple),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       // 📌 마감일 + 알림
@@ -407,6 +445,27 @@ class AddScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  // 📌 색상 선택 원형 버튼
+  Widget _colorDot(AddViewModel vm, Color color) {
+    return GestureDetector(
+      onTap: () => vm.setColor(color.value),
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: vm.selectedColor == color.value
+                ? Colors.white
+                : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
     );
   }
 }

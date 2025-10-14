@@ -330,9 +330,10 @@ class NoteScreen extends StatelessWidget {
             note.content,
             title: note.title,
             color: note.color,
-            tags: note.tags,
-            checklist: note.checklist,
+            tags: note.tags ?? [],
+            checklist: note.checklist ?? [],
           ),
+
         ),
       ),
     );

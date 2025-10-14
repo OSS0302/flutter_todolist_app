@@ -2,7 +2,7 @@ import 'package:hive/hive.dart';
 
 part 'note.g.dart';
 
-@HiveType(typeId: 1) // typeId는 프로젝트에서 고유하게 설정
+@HiveType(typeId: 1)
 class Note extends HiveObject {
   @HiveField(0)
   String id;
@@ -29,13 +29,22 @@ class Note extends HiveObject {
   List<String>? tags;
 
   @HiveField(8)
-  final bool isArchived;
+  bool isArchived;
 
   @HiveField(9)
-  List<String>? checklist; // ✅ 체크리스트 항목들 추가
+  List<String>? checklist;
 
   @HiveField(10)
-  int color; // 색상도 Hive에 저장하려면 Field 지정 필요
+  int color;
+
+  @HiveField(11)
+  bool isStarred;
+
+  @HiveField(12)
+  bool isDeleted;
+
+  @HiveField(13)
+  int? reminder; // 🆕 리마인더 (timestamp)
 
   Note({
     required this.id,
@@ -48,7 +57,10 @@ class Note extends HiveObject {
     this.tags,
     this.color = 0xFFFFF3E0,
     this.isArchived = false,
-    this.checklist, // ✅ 새로 추가
+    this.checklist,
+    this.isStarred = false,
+    this.isDeleted = false,
+    this.reminder,
   });
 
   Note copyWith({
@@ -61,6 +73,9 @@ class Note extends HiveObject {
     List<String>? tags,
     bool? isArchived,
     List<String>? checklist,
+    bool? isStarred,
+    bool? isDeleted,
+    int? reminder,
   }) {
     return Note(
       id: id,
@@ -74,6 +89,9 @@ class Note extends HiveObject {
       tags: tags ?? this.tags,
       isArchived: isArchived ?? this.isArchived,
       checklist: checklist ?? this.checklist,
+      isStarred: isStarred ?? this.isStarred,
+      isDeleted: isDeleted ?? this.isDeleted,
+      reminder: reminder ?? this.reminder,
     );
   }
 }
