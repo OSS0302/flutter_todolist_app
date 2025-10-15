@@ -134,158 +134,221 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// SpeedDial 버튼 (고급스럽고 세련된 버전)
+
   Widget _buildSpeedDial(ListViewModel viewModel) {
     return ScaleTransition(
       scale: _fadeAnimation,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: SpeedDial(
-            animatedIcon: AnimatedIcons.menu_close,
-            curve: Curves.easeInOutBack,
-            overlayColor: Colors.black,
-            overlayOpacity: 0.45,
-            spaceBetweenChildren: 10,
-            childrenButtonSize: const Size(60, 60),
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            iconTheme: const IconThemeData(color: Colors.white, size: 28),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          // 🌈 Shimmer + 반사 효과용 애니메이션 오버레이
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(seconds: 3),
+              curve: Curves.easeInOut,
+              builder: (context, value, child) {
+                final gradientX = (value * 2 - 1) * 200;
+                return Container(
+                  width: 75,
+                  height: 75,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment(-1.5 + value * 3, -1),
+                      end: Alignment(1.5 - value * 3, 1),
+                      colors: [
+                        Colors.white.withOpacity(0.15),
+                        Colors.transparent,
+                        Colors.white.withOpacity(0.1),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              onEnd: () {},
             ),
-
-            children: [
-              // 🩵 할 일 추가
-              SpeedDialChild(
-                backgroundColor: Colors.white.withOpacity(0.15),
-                labelBackgroundColor: Colors.black.withOpacity(0.6),
-                labelStyle: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-                elevation: 8,
-                child: const Icon(Icons.playlist_add, color: Colors.white),
-                label: '할 일 추가',
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  await Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      transitionDuration: const Duration(milliseconds: 500),
-                      pageBuilder: (_, __, ___) => const AddScreen(),
-                      transitionsBuilder: (_, animation, __, child) =>
-                          FadeTransition(opacity: animation, child: child),
-                    ),
-                  );
-                  viewModel.refresh();
-                },
-              ),
-
-              // 🔷 정렬 옵션
-              SpeedDialChild(
-                backgroundColor: Colors.white.withOpacity(0.15),
-                labelBackgroundColor: Colors.black.withOpacity(0.6),
-                labelStyle: const TextStyle(color: Colors.white),
-                child: const Icon(Icons.sort, color: Colors.white),
-                label: '정렬 옵션',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  _showSortOptions(viewModel);
-                },
-              ),
-
-              // 🧡 메모장
-              SpeedDialChild(
-                backgroundColor: Colors.white.withOpacity(0.15),
-                labelBackgroundColor: Colors.black.withOpacity(0.6),
-                labelStyle: const TextStyle(color: Colors.white),
-                child: const Icon(Icons.note_alt_outlined, color: Colors.white),
-                label: '메모장',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NoteScreen(
-                        todoId: '',
-                        todoTitle: '',
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              // ⭐ 즐겨찾기 필터
-              SpeedDialChild(
-                backgroundColor: Colors.white.withOpacity(0.15),
-                labelBackgroundColor: Colors.black.withOpacity(0.6),
-                labelStyle: const TextStyle(color: Colors.white),
-                child: Icon(
-                  viewModel.showOnlyFavorites ? Icons.star : Icons.star_border,
-                  color: Colors.yellowAccent,
-                ),
-                label: '즐겨찾기 필터',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  viewModel.toggleFavoriteFilter();
-                },
-              ),
-
-              // ❌ 전체 삭제
-              SpeedDialChild(
-                backgroundColor: Colors.redAccent.withOpacity(0.25),
-                labelBackgroundColor: Colors.black.withOpacity(0.6),
-                labelStyle: const TextStyle(color: Colors.white),
-                child: const Icon(Icons.delete_forever, color: Colors.redAccent),
-                label: '전체 삭제',
-                onTap: () async {
-                  HapticFeedback.mediumImpact();
-                  final shouldDeleteAll = await _showConfirmDialog(
-                    title: '전체 삭제',
-                    content: '모든 할 일을 삭제하시겠습니까?',
-                  );
-                  if (shouldDeleteAll) viewModel.clearAllTodos();
-                },
-              ),
-
-              // 🌙 다크모드 전환
-              SpeedDialChild(
-                backgroundColor: Colors.deepPurple.withOpacity(0.3),
-                labelBackgroundColor: Colors.black.withOpacity(0.6),
-                labelStyle: const TextStyle(color: Colors.white),
-                child: Icon(
-                  isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                  color: Colors.white,
-                ),
-                label: '다크모드 전환',
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => isDarkMode = !isDarkMode);
-                },
-              ),
-
-              // ℹ️ 앱 정보
-              SpeedDialChild(
-                backgroundColor: Colors.indigo.withOpacity(0.3),
-                labelBackgroundColor: Colors.black.withOpacity(0.6),
-                labelStyle: const TextStyle(color: Colors.white),
-                child: const Icon(Icons.info_outline, color: Colors.white),
-                label: '앱 정보',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  _showAboutDialog();
-                },
-              ),
-            ],
           ),
-        ),
+
+          // 💎 SpeedDial 본체
+          ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF6D83F2),
+                      Color(0xFF4FACFE),
+                      Color(0xFF00F2FE),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blueAccent.withOpacity(0.4),
+                      blurRadius: 25,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 10),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: SpeedDial(
+                  animatedIcon: AnimatedIcons.menu_close,
+                  curve: Curves.easeInOutBack,
+                  overlayColor: Colors.black,
+                  overlayOpacity: 0.45,
+                  spaceBetweenChildren: 10,
+                  childrenButtonSize: const Size(60, 60),
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  iconTheme: const IconThemeData(color: Colors.white, size: 28),
+
+                  children: [
+                    // 🩵 할 일 추가
+                    SpeedDialChild(
+                      backgroundColor: Colors.white.withOpacity(0.15),
+                      labelBackgroundColor: Colors.black.withOpacity(0.6),
+                      labelStyle: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w600),
+                      elevation: 8,
+                      child: const Icon(Icons.playlist_add, color: Colors.white),
+                      label: '할 일 추가',
+                      onTap: () async {
+                        HapticFeedback.lightImpact();
+                        await Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            transitionDuration: const Duration(milliseconds: 500),
+                            pageBuilder: (_, __, ___) => const AddScreen(),
+                            transitionsBuilder: (_, animation, __, child) =>
+                                FadeTransition(opacity: animation, child: child),
+                          ),
+                        );
+                        viewModel.refresh();
+                      },
+                    ),
+
+                    // 🔷 정렬 옵션
+                    SpeedDialChild(
+                      backgroundColor: Colors.white.withOpacity(0.15),
+                      labelBackgroundColor: Colors.black.withOpacity(0.6),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      child: const Icon(Icons.sort, color: Colors.white),
+                      label: '정렬 옵션',
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _showSortOptions(viewModel);
+                      },
+                    ),
+
+                    // 🧡 메모장
+                    SpeedDialChild(
+                      backgroundColor: Colors.white.withOpacity(0.15),
+                      labelBackgroundColor: Colors.black.withOpacity(0.6),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      child:
+                      const Icon(Icons.note_alt_outlined, color: Colors.white),
+                      label: '메모장',
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NoteScreen(
+                              todoId: '',
+                              todoTitle: '',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ⭐ 즐겨찾기 필터
+                    SpeedDialChild(
+                      backgroundColor: Colors.white.withOpacity(0.15),
+                      labelBackgroundColor: Colors.black.withOpacity(0.6),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      child: Icon(
+                        viewModel.showOnlyFavorites
+                            ? Icons.star
+                            : Icons.star_border,
+                        color: Colors.yellowAccent,
+                      ),
+                      label: '즐겨찾기 필터',
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        viewModel.toggleFavoriteFilter();
+                      },
+                    ),
+
+                    // ❌ 전체 삭제
+                    SpeedDialChild(
+                      backgroundColor: Colors.redAccent.withOpacity(0.25),
+                      labelBackgroundColor: Colors.black.withOpacity(0.6),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      child: const Icon(Icons.delete_forever,
+                          color: Colors.redAccent),
+                      label: '전체 삭제',
+                      onTap: () async {
+                        HapticFeedback.mediumImpact();
+                        final shouldDeleteAll = await _showConfirmDialog(
+                          title: '전체 삭제',
+                          content: '모든 할 일을 삭제하시겠습니까?',
+                        );
+                        if (shouldDeleteAll) viewModel.clearAllTodos();
+                      },
+                    ),
+
+                    // 🌙 다크모드 전환
+                    SpeedDialChild(
+                      backgroundColor: Colors.deepPurple.withOpacity(0.3),
+                      labelBackgroundColor: Colors.black.withOpacity(0.6),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      child: Icon(
+                        isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                        color: Colors.white,
+                      ),
+                      label: '다크모드 전환',
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => isDarkMode = !isDarkMode);
+                      },
+                    ),
+
+                    // ℹ️ 앱 정보
+                    SpeedDialChild(
+                      backgroundColor: Colors.indigo.withOpacity(0.3),
+                      labelBackgroundColor: Colors.black.withOpacity(0.6),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      child:
+                      const Icon(Icons.info_outline, color: Colors.white),
+                      label: '앱 정보',
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _showAboutDialog();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
 
 
   @override
