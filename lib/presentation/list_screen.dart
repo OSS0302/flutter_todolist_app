@@ -325,6 +325,61 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
         false;
   }
 
+  /// 🔽 정렬 옵션 BottomSheet
+  void _showSortOptions(ListViewModel viewModel) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Wrap(
+        children: [
+          _sortOptionTile(Icons.star, '즐겨찾기 우선', () {
+            viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
+            viewModel.notifyListeners();
+          }),
+          _sortOptionTile(Icons.access_time, '마감일순', () {
+            viewModel.todos.sort((a, b) {
+              return (a.dueDate ?? DateTime.now())
+                  .compareTo(b.dueDate ?? DateTime.now());
+            });
+            viewModel.notifyListeners();
+          }),
+          _sortOptionTile(Icons.done_all, '완료 항목 우선', () {
+            viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
+            viewModel.notifyListeners();
+          }),
+        ],
+      ),
+    );
+  }
+
+  ListTile _sortOptionTile(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.blueAccent),
+      title: Text(title),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+    );
+  }
+
+  /// ℹ️ 앱 정보 다이얼로그
+  void _showAboutDialog() {
+    showAboutDialog(
+      context: context,
+      applicationName: "TodoList Pro",
+      applicationVersion: "v3.0.0",
+      applicationIcon: const Icon(Icons.check_circle, color: Colors.blueAccent),
+      children: [
+        const Text("세련된 프리미엄 TodoList 앱입니다.\nFlutter 3D FAB & Shimmer 효과 적용."),
+      ],
+    );
+  }
+
+
   SpeedDialChild _buildDialChild({
     required IconData icon,
     required String label,
