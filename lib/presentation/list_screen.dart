@@ -203,96 +203,186 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
   }
 
   /// SpeedDial 본체
-  Widget _buildSpeedDial(ListViewModel viewModel) {
-    return ScaleTransition(
-      scale: _fadeAnimation,
-      child: SpeedDial(
-        animatedIcon: null,
-        child: _build3DPremiumFAB(),
-        overlayColor: Colors.black,
-        overlayOpacity: 0.4,
-        curve: Curves.easeInOutBack,
-        spaceBetweenChildren: 14,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        onOpen: () => HapticFeedback.selectionClick(),
-        onClose: () => HapticFeedback.selectionClick(),
-        childrenButtonSize: const Size(60, 60),
-        children: [
-          _buildDialChild(
-            icon: Icons.playlist_add,
-            label: '할 일 추가',
-            color: Colors.lightBlueAccent,
-            onTap: () async {
-              HapticFeedback.lightImpact();
-              await Navigator.push(
-                context,
-                PageRouteBuilder(
-                  transitionDuration: const Duration(milliseconds: 500),
-                  pageBuilder: (_, __, ___) => const AddScreen(),
-                  transitionsBuilder: (_, animation, __, child) =>
-                      FadeTransition(opacity: animation, child: child),
-                ),
-              );
-              viewModel.refresh();
-            },
-          ),
-          _buildDialChild(
-            icon: Icons.sort,
-            label: '정렬 옵션',
-            color: Colors.tealAccent,
-            onTap: () => _showSortOptions(viewModel),
-          ),
-          _buildDialChild(
-            icon: Icons.note_alt_outlined,
-            label: '메모장',
-            color: Colors.orangeAccent,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                  const NoteScreen(todoId: '', todoTitle: ''),
-                ),
-              );
-            },
-          ),
-          _buildDialChild(
-            icon: viewModel.showOnlyFavorites
-                ? Icons.star
-                : Icons.star_border,
-            label: '즐겨찾기 필터',
-            color: Colors.yellowAccent,
-            onTap: () => viewModel.toggleFavoriteFilter(),
-          ),
-          _buildDialChild(
-            icon: Icons.delete_forever,
-            label: '전체 삭제',
-            color: Colors.redAccent,
-            onTap: () async {
-              final shouldDeleteAll = await _showConfirmDialog(
-                title: '전체 삭제',
-                content: '모든 할 일을 삭제하시겠습니까?',
-              );
-              if (shouldDeleteAll) viewModel.clearAllTodos();
-            },
-          ),
-          _buildDialChild(
-            icon: isDarkMode ? Icons.light_mode : Icons.dark_mode,
-            label: '다크모드 전환',
-            color: Colors.purpleAccent,
-            onTap: () => setState(() => isDarkMode = !isDarkMode),
-          ),
-          _buildDialChild(
-            icon: Icons.info_outline,
-            label: '앱 정보',
-            color: Colors.indigoAccent,
-            onTap: _showAboutDialog,
-          ),
-        ],
+  import 'package:flutter/services.dart'; // 꼭 추가해야 합니다 (HapticFeedback 용)
+
+  /// 🌟 iOS 스타일 정렬 옵션 BottomSheet (Glass Blur)
+  void _showSortOptions(ListViewModel viewModel) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.3),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
+      builder: (context) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+              ),
+              child: Wrap(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white54,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  _sortOptionTile(
+                    Icons.star,
+                    '⭐ 즐겨찾기 우선',
+                        () {
+                      HapticFeedback.lightImpact();
+                      viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
+                      viewModel.notifyListeners();
+                    },
+                  ),
+                  _sortOptionTile(
+                    Icons.access_time,
+                    '⏰ 마감일순',
+                        () {
+                      HapticFeedback.lightImpact();
+                      viewModel.todos.sort((a, b) {
+                        return (a.dueDate ?? DateTime.now())
+                            .compareTo(b.dueDate ?? DateTime.now());
+                      });
+                      viewModel.notifyListeners();
+                    },
+                  ),
+                  _sortOptionTile(
+                    Icons.done_all,
+                    '✅ 완료 항목 우선',
+                        () {
+                      HapticFeedback.lightImpact();
+                      viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
+                      viewModel.notifyListeners();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
+
+  ListTile _sortOptionTile(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.blueAccent),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+    );
+  }
+
+  /// ℹ️ iOS 스타일 앱 정보 다이얼로그
+  void _showAboutDialog() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '',
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (_, __, ___) {
+        return Center(
+          child: ScaleTransition(
+            scale: CurvedAnimation(
+              parent: _fadeController,
+              curve: Curves.easeInOutBack,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                child: Container(
+                  width: 320,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    border: Border.all(color: Colors.white30, width: 1.5),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 25,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.lightBlueAccent, size: 48),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "TodoList Pro",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        "v3.1.0",
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "세련된 Flutter Todo 앱입니다.\n3D FAB + Shimmer + iOS Blur 효과 적용.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, height: 1.4),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          child: Text("확인", style: TextStyle(fontSize: 16)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// 삭제 확인 다이얼로그
   Future<bool> _showConfirmDialog({
     required String title,
