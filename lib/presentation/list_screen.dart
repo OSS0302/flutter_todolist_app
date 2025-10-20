@@ -1,14 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
-import 'package:provider/provider.dart';
-import 'package:todolist/presentation/add_screen.dart';
-import 'package:todolist/presentation/list_view_model.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
+import 'package:provider/provider.dart';
+import 'package:todolist/presentation/add_screen.dart';
+import 'package:todolist/presentation/list_view_model.dart';
 
 class ListScreen extends StatefulWidget {
   const ListScreen({Key? key}) : super(key: key);
@@ -19,12 +18,10 @@ class ListScreen extends StatefulWidget {
 
 class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
-  bool isDarkMode = true;
   bool isPressed = false;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-  late AnimationController _shimmerController;
 
   @override
   void initState() {
@@ -33,65 +30,60 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
       context.read<ListViewModel>().loadTodos();
     });
 
-    _fadeController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _fadeController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
     _fadeAnimation =
         CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
     _fadeController.forward();
-
-    _shimmerController =
-    AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))
-      ..repeat();
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
-    _shimmerController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // ✅ 프리미엄 스타일 확인 다이얼로그
-  Future<bool> _showConfirmDialog({
-    required String title,
-    required String message,
-  }) async {
+  // ✅ 삭제 확인 다이얼로그
+  Future<bool> _showConfirmDialog(String title, String message) async {
     bool? result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text("취소", style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: AlertDialog(
+            backgroundColor: Colors.white.withOpacity(0.9),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            title: Text(title,
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+            content: Text(message,
+                style: GoogleFonts.notoSans(color: Colors.black87)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("취소"),
               ),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text("확인"),
-            ),
-          ],
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))),
+                child: const Text("확인"),
+              )
+            ],
+          ),
         );
       },
     );
     return result ?? false;
   }
 
-  // ✅ 3D FAB (기존 유지)
-  Widget _build3DPremiumFAB() {
-    const double size = 68;
+  // ✅ 세련된 3D Floating Button
+  Widget _build3DFAB() {
+    const double size = 70;
 
     return GestureDetector(
       onTapDown: (_) => setState(() => isPressed = true),
@@ -100,10 +92,7 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => AddScreen(
-              todoId: null,
-              todoTitle: '',
-            ),
+            builder: (_) => const AddScreen(),
           ),
         );
       },
@@ -116,17 +105,18 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.blueAccent.withOpacity(0.4),
-                  blurRadius: 25,
-                  offset: const Offset(0, 12))
-            ],
             gradient: const LinearGradient(
               colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blueAccent.withOpacity(0.6),
+                blurRadius: 25,
+                offset: const Offset(0, 8),
+              )
+            ],
           ),
           child: const Icon(Icons.add, color: Colors.white, size: 30),
         ),
@@ -134,301 +124,201 @@ class _ListScreenState extends State<ListScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ✅ SpeedDial
-  Widget _buildSpeedDial(ListViewModel viewModel) {
-    return SpeedDial(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      icon: Icons.menu,
-      activeIcon: Icons.close,
-      overlayColor: Colors.black,
-      overlayOpacity: 0.4,
-      children: [
-        SpeedDialChild(
-          child: const Icon(Icons.sort, color: Colors.white),
-          backgroundColor: Colors.blueAccent,
-          label: "정렬",
-          onTap: () => _showSortOptions(viewModel),
-        ),
-        SpeedDialChild(
-          child: const Icon(Icons.info_outline, color: Colors.white),
-          backgroundColor: Colors.blueAccent,
-          label: "앱 정보",
-          onTap: _showAboutDialog,
-        ),
-        SpeedDialChild(
-          child: const Icon(Icons.add, color: Colors.white),
-          backgroundColor: Colors.blueAccent,
-          label: "할 일 추가",
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AddScreen(
-                  todoId: null,
-                  todoTitle: '',
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-      child: _build3DPremiumFAB(),
-    );
-  }
-
-  // ✅ 정렬 옵션 BottomSheet
-  void _showSortOptions(ListViewModel viewModel) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape:
-      const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Wrap(
-        children: [
-          _sortOptionTile(Icons.star, '즐겨찾기 우선', () {
-            viewModel.todos.sort((a, b) => b.isFavorite ? 1 : -1);
-            viewModel.notifyListeners();
-          }),
-          _sortOptionTile(Icons.access_time, '마감일순', () {
-            viewModel.todos.sort((a, b) {
-              return (a.dueDate ?? DateTime.now())
-                  .compareTo(b.dueDate ?? DateTime.now());
-            });
-            viewModel.notifyListeners();
-          }),
-          _sortOptionTile(Icons.done_all, '완료 항목 우선', () {
-            viewModel.todos.sort((a, b) => b.isDone ? 1 : -1);
-            viewModel.notifyListeners();
-          }),
-        ],
-      ),
-    );
-  }
-
-  ListTile _sortOptionTile(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blueAccent),
-      title: Text(title),
-      onTap: () {
-        Navigator.pop(context);
-        onTap();
-      },
-    );
-  }
-
-  void _showAboutDialog() {
-    showAboutDialog(
-      context: context,
-      applicationName: "TodoList Pro",
-      applicationVersion: "v3.2.0",
-      applicationIcon:
-      const Icon(Icons.check_circle, color: Colors.blueAccent),
-      children: const [
-        Text("세련된 프리미엄 TodoList 앱입니다.\n3D FAB + Blur + Shimmer 효과 적용."),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<ListViewModel>();
+    final vm = context.watch<ListViewModel>();
+    final date = DateTime.now();
+    final greeting = date.hour < 12
+        ? "좋은 아침이에요 ☀️"
+        : (date.hour < 18 ? "좋은 오후예요 🌤️" : "좋은 저녁이에요 🌙");
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: isDarkMode ? Colors.black : Colors.white,
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text('TodoList',
-            style: GoogleFonts.montserrat(
-                color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 24)),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        title: Text('TodoList Pro',
+            style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.bold, fontSize: 24, color: Colors.white)),
         centerTitle: true,
       ),
+      floatingActionButton: _build3DFAB(),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Stack(
           children: [
-            _buildBackground(),
+            _buildBlurredBackground(),
             SafeArea(
-              child: viewModel.isLoading
+              child: vm.isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : Column(
-                children: [
-                  _buildSearchBar(viewModel),
-                  _buildFilterChips(viewModel),
-                  _buildProgressBar(viewModel),
-                  const SizedBox(height: 12),
-                  _buildTodoList(viewModel),
-                ],
+                  : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text(greeting,
+                        style: GoogleFonts.poppins(
+                            color: Colors.white70, fontSize: 16)),
+                    Text(
+                      "${date.year}.${date.month}.${date.day}",
+                      style: GoogleFonts.poppins(
+                          color: Colors.white54, fontSize: 14),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildProgressBar(vm),
+                    const SizedBox(height: 10),
+                    Expanded(child: _buildTodoList(vm)),
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: _buildSpeedDial(viewModel),
     );
   }
 
-  Widget _buildBackground() {
+  Widget _buildBlurredBackground() {
     return Container(
-      decoration: isDarkMode
-          ? const BoxDecoration(
-          gradient: LinearGradient(
-              colors: [Colors.black, Colors.black87, Colors.black54],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight))
-          : const BoxDecoration(color: Colors.white),
-    );
-  }
-
-  Widget _buildSearchBar(ListViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: TextField(
-        onChanged: viewModel.setSearchKeyword,
-        style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-        decoration: InputDecoration(
-          hintText: '할 일을 검색하세요...',
-          hintStyle:
-          TextStyle(color: isDarkMode ? Colors.white54 : Colors.black45),
-          filled: true,
-          fillColor: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.05),
-          prefixIcon: Icon(Icons.search,
-              color: isDarkMode ? Colors.white54 : Colors.black54),
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF000428), Color(0xFF004e92)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
     );
   }
 
-  Widget _buildFilterChips(ListViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _filterChip('전체', FilterStatus.all, viewModel),
-          _filterChip('완료', FilterStatus.done, viewModel),
-          _filterChip('미완료', FilterStatus.notDone, viewModel),
-        ],
+  Widget _buildProgressBar(ListViewModel vm) {
+    return LinearPercentIndicator(
+      lineHeight: 10,
+      percent: vm.progress,
+      animation: true,
+      barRadius: const Radius.circular(12),
+      backgroundColor: Colors.white24,
+      progressColor: Colors.lightGreenAccent,
+      center: Text(
+        "${(vm.progress * 100).toStringAsFixed(0)}%",
+        style: GoogleFonts.roboto(color: Colors.white, fontSize: 12),
       ),
     );
   }
 
-  ChoiceChip _filterChip(String label, FilterStatus status, ListViewModel vm) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: vm.filterStatus == status,
-      selectedColor: Colors.blue,
-      onSelected: (_) => vm.setFilterStatus(status),
-    );
-  }
-
-  Widget _buildProgressBar(ListViewModel viewModel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: LinearPercentIndicator(
-        lineHeight: 12,
-        percent: viewModel.progress,
-        backgroundColor: Colors.grey.shade300,
-        progressColor: Colors.lightGreenAccent,
-        barRadius: const Radius.circular(12),
-        animation: true,
-        animationDuration: 600,
-        center: Text(
-          "${(viewModel.progress * 100).toStringAsFixed(0)}%",
-          style: TextStyle(
-              color: isDarkMode ? Colors.white : Colors.black,
-              fontSize: 12,
-              fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTodoList(ListViewModel viewModel) {
-    if (viewModel.filteredTodos.isEmpty) {
-      return const Expanded(
-        child: Center(
-          child: Text('할 일이 없습니다.',
-              style: TextStyle(color: Colors.red, fontSize: 18)),
-        ),
-      );
+  Widget _buildTodoList(ListViewModel vm) {
+    if (vm.filteredTodos.isEmpty) {
+      return const Center(
+          child: Text("할 일이 없습니다.",
+              style: TextStyle(color: Colors.white54, fontSize: 16)));
     }
 
-    return Expanded(
-      child: AnimationLimiter(
-        child: ListView.builder(
-          controller: _scrollController,
-          itemCount: viewModel.filteredTodos.length,
-          itemBuilder: (context, index) {
-            final todo = viewModel.filteredTodos[index];
-            final date = DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
-            final formattedDate = '${date.year}년 ${date.month}월 ${date.day}일';
+    return AnimationLimiter(
+      child: ListView.builder(
+        controller: _scrollController,
+        itemCount: vm.filteredTodos.length,
+        itemBuilder: (context, index) {
+          final todo = vm.filteredTodos[index];
+          final date = DateTime.fromMillisecondsSinceEpoch(todo.dateTime);
+          final formattedDate = "${date.month}월 ${date.day}일";
+          final baseColor = Color(todo.color ?? 0xFF4FACFE);
 
-            final textColor =
-            todo.isDone ? Colors.red : (isDarkMode ? Colors.white : Colors.black);
-
-            final textStyle = GoogleFonts.notoSans(
-              color: textColor,
-              decoration:
-              todo.isDone ? TextDecoration.lineThrough : TextDecoration.none,
-              fontSize: 16,
-            );
-
-            return AnimationConfiguration.staggeredList(
-              position: index,
-              duration: const Duration(milliseconds: 400),
-              child: SlideAnimation(
-                verticalOffset: 50.0,
-                child: FadeInAnimation(
-                  child: Slidable(
-                    key: Key(todo.key.toString()),
-                    endActionPane: ActionPane(
-                      motion: const StretchMotion(),
-                      children: [
-                        SlidableAction(
-                          onPressed: (_) async {
-                            final shouldDelete = await _showConfirmDialog(
-                              title: "삭제 확인",
-                              message: "정말 이 항목을 삭제하시겠습니까?",
-                            );
-                            if (shouldDelete) viewModel.deleteTodo(todo);
-                          },
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          icon: Icons.delete,
-                          label: '삭제',
-                        ),
-                        SlidableAction(
-                          onPressed: (_) => viewModel.toggleFavorite(todo),
-                          backgroundColor: Colors.amber,
-                          foregroundColor: Colors.white,
-                          icon: todo.isFavorite
-                              ? Icons.star
-                              : Icons.star_border,
-                          label: '즐겨찾기',
-                        ),
+          return AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 400),
+            child: SlideAnimation(
+              verticalOffset: 40,
+              child: FadeInAnimation(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border:
+                      Border.all(color: baseColor.withOpacity(0.4), width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                            color: baseColor.withOpacity(0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4))
                       ],
                     ),
-                    child: ListTile(
-                      onTap: () => viewModel.toggleDone(todo),
-                      leading: todo.isDone
-                          ? const Icon(Icons.check_circle, color: Colors.green)
-                          : const Icon(Icons.check_circle_outline),
-                      title: Text(todo.title, style: textStyle),
-                      subtitle:
-                      Text(formattedDate, style: textStyle.copyWith(fontSize: 12)),
+                    child: Slidable(
+                      key: Key(todo.key.toString()),
+                      endActionPane: ActionPane(
+                        motion: const StretchMotion(),
+                        children: [
+                          SlidableAction(
+                            onPressed: (_) async {
+                              final confirm = await _showConfirmDialog(
+                                  "삭제 확인", "이 항목을 삭제하시겠습니까?");
+                              if (confirm) vm.deleteTodo(todo);
+                            },
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            icon: Icons.delete,
+                            label: '삭제',
+                          ),
+                          SlidableAction(
+                            onPressed: (_) => vm.toggleFavorite(todo),
+                            backgroundColor: Colors.amber,
+                            foregroundColor: Colors.white,
+                            icon: todo.isFavorite
+                                ? Icons.star
+                                : Icons.star_border,
+                            label: '즐겨찾기',
+                          ),
+                        ],
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          todo.isDone
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          color:
+                          todo.isDone ? Colors.greenAccent : baseColor,
+                        ),
+                        title: Text(
+                          todo.title,
+                          style: GoogleFonts.notoSans(
+                              color: Colors.white,
+                              decoration: todo.isDone
+                                  ? TextDecoration.lineThrough
+                                  : TextDecoration.none,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16),
+                        ),
+                        subtitle: Row(
+                          children: [
+                            Text(
+                              formattedDate,
+                              style: GoogleFonts.roboto(
+                                  color: Colors.white54, fontSize: 12),
+                            ),
+                            if (todo.tags != null && todo.tags!.isNotEmpty)
+                              ...todo.tags!.map((tag) => Padding(
+                                padding:
+                                const EdgeInsets.only(left: 6, top: 2),
+                                child: Text(
+                                  "#$tag",
+                                  style: TextStyle(
+                                      color: baseColor.withOpacity(0.8),
+                                      fontSize: 12),
+                                ),
+                              ))
+                          ],
+                        ),
+                        onTap: () => vm.toggleDone(todo),
+                      ),
                     ),
                   ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
