@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:todolist/presentation/list_view_model.dart';
-import 'package:todolist/domain/todo.dart';
+
+import '../model/todo.dart';
 
 class AddScreen extends StatefulWidget {
   final int? todoId;
@@ -70,7 +71,7 @@ class _AddScreenState extends State<AddScreen> {
       checklist: [],
     );
 
-    context.read<ListViewModel>().addTodo(newTodo);
+    context.read<ListViewModel>().clearAllTodos();
     Navigator.pop(context);
   }
 
