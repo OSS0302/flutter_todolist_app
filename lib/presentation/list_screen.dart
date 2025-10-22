@@ -2,9 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
-
-import '../model/todo.dart';
 
 class AddScreen extends StatefulWidget {
   final int? todoId;
@@ -33,6 +32,14 @@ class _AddScreenState extends State<AddScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _tagController.dispose();
+    super.dispose();
+  }
+
+  /// 📅 날짜 선택 다이얼로그
   Future<void> _selectDueDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -41,23 +48,30 @@ class _AddScreenState extends State<AddScreen> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
+      setState(() => _selectedDate = picked);
     }
   }
 
+  /// 🏷️ 태그 추가
   void _addTag() {
     final tag = _tagController.text.trim();
-    if (tag.isNotEmpty && !_tags.contains(tag)) {
-      setState(() {
-        _tags.add(tag);
-        _tagController.clear();
-      });
+    if (tag.isEmpty) return;
+
+    if (_tags.any((t) => t.toLowerCase() == tag.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("이미 존재하는 태그입니다.")),
+      );
+      return;
     }
+
+    setState(() {
+      _tags.add(tag);
+      _tagController.clear();
+    });
   }
 
-  void _saveTodo() {
+  /// 💾 할 일 저장
+  Future<void> _saveTodo() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
 
@@ -71,7 +85,12 @@ class _AddScreenState extends State<AddScreen> {
       checklist: [],
     );
 
-    context.read<ListViewModel>().clearAllTodos();
+    await context.read<ListViewModel>().addTodo(newTodo);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('할 일이 추가되었습니다!')),
+    );
+
     Navigator.pop(context);
   }
 
@@ -128,6 +147,7 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
+  /// 🌈 배경
   Widget _buildBackground() {
     return Container(
       decoration: const BoxDecoration(
@@ -140,6 +160,7 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
+  /// 📝 제목 입력
   Widget _buildTitleInput() {
     return TextField(
       controller: _titleController,
@@ -156,6 +177,7 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
+  /// ⚡ 우선순위 선택
   Widget _buildPrioritySelector() {
     final priorities = ['낮음', '보통', '높음'];
     return Column(
@@ -175,8 +197,7 @@ class _AddScreenState extends State<AddScreen> {
               backgroundColor: Colors.white12,
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : Colors.white70,
-                fontWeight:
-                isSelected ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
               onSelected: (_) => setState(() => _selectedPriority = p),
             );
@@ -186,6 +207,7 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
+  /// 📆 마감일 선택
   Widget _buildDateSelector() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -202,14 +224,15 @@ class _AddScreenState extends State<AddScreen> {
           label: const Text("선택"),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blueAccent,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         )
       ],
     );
   }
 
+  /// 🎨 색상 선택
   Widget _buildColorPicker() {
     final colors = [
       Colors.blueAccent,
@@ -238,9 +261,8 @@ class _AddScreenState extends State<AddScreen> {
                 decoration: BoxDecoration(
                   color: c,
                   shape: BoxShape.circle,
-                  border: isSelected
-                      ? Border.all(color: Colors.white, width: 3)
-                      : null,
+                  border:
+                  isSelected ? Border.all(color: Colors.white, width: 3) : null,
                 ),
               ),
             );
@@ -250,6 +272,7 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
+  /// 🏷️ 태그 추가
   Widget _buildTagInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +299,8 @@ class _AddScreenState extends State<AddScreen> {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.add_circle, color: Colors.lightBlueAccent),
+              icon:
+              const Icon(Icons.add_circle, color: Colors.lightBlueAccent),
               onPressed: _addTag,
             ),
           ],
@@ -288,7 +312,8 @@ class _AddScreenState extends State<AddScreen> {
             label: Text(t),
             backgroundColor: Colors.white10,
             labelStyle: const TextStyle(color: Colors.white70),
-            deleteIcon: const Icon(Icons.close, color: Colors.white54),
+            deleteIcon:
+            const Icon(Icons.close, color: Colors.white54),
             onDeleted: () =>
                 setState(() => _tags.removeWhere((tag) => tag == t)),
           ))
@@ -298,10 +323,12 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
+  /// ✅ 저장 버튼
   Widget _buildSaveButton() {
     return Center(
       child: ElevatedButton.icon(
-        onPressed: _saveTodo,
+        onPressed:
+        _titleController.text.trim().isEmpty ? null : _saveTodo,
         icon: const Icon(Icons.check),
         label: const Text("저장하기"),
         style: ElevatedButton.styleFrom(
