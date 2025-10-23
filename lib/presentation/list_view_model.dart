@@ -1,7 +1,6 @@
-
 import 'package:flutter/material.dart';
-import 'package:todolist/model/todo.dart';
 import 'package:hive/hive.dart';
+import 'package:todolist/model/todo.dart';
 
 enum FilterStatus { all, done, notDone }
 
@@ -25,6 +24,7 @@ class ListViewModel extends ChangeNotifier {
   bool get showOnlyFavorites => _showOnlyFavorites;
   FilterStatus get filterStatus => _filterStatus;
 
+  // ✅ 필터링된 목록 반환
   List<Todo> get filteredTodos {
     final filtered = _todos.where((todo) {
       final matchKeyword = todo.title.contains(_searchKeyword);
@@ -35,6 +35,7 @@ class ListViewModel extends ChangeNotifier {
       return matchKeyword && matchFavorite && matchStatus;
     }).toList();
 
+    // 정렬 기준: 즐겨찾기 → 미완료 → 마감일순
     filtered.sort((a, b) {
       if (a.isFavorite != b.isFavorite) {
         return b.isFavorite ? 1 : -1;
@@ -56,6 +57,7 @@ class ListViewModel extends ChangeNotifier {
     return completed / total;
   }
 
+  // ✅ Hive에서 할 일 불러오기
   Future<void> fetchTodos() async {
     _isLoading = true;
     notifyListeners();
@@ -82,18 +84,21 @@ class ListViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ✅ 완료 토글
   Future<void> toggleDone(Todo todo) async {
     todo.isDone = !todo.isDone;
     await todo.save();
     notifyListeners();
   }
 
+  // ✅ 즐겨찾기 토글
   Future<void> toggleFavorite(Todo todo) async {
     todo.isFavorite = !todo.isFavorite;
     await todo.save();
     notifyListeners();
   }
 
+  // ✅ 삭제
   Future<void> deleteTodo(Todo todo) async {
     await todo.delete();
     _todos.removeWhere((t) => t.key == todo.key);
@@ -107,9 +112,28 @@ class ListViewModel extends ChangeNotifier {
   Future<void> loadTodos() async {
     await fetchTodos();
   }
+
+  // ✅ 전체 삭제
   Future<void> clearAllTodos() async {
     await _todoBox.clear();  // Hive Box 전체 삭제
     _todos.clear();          // 메모리에서도 삭제
     notifyListeners();       // UI 갱신
+  }
+
+  // ✅ 새 할 일 추가 기능 (🔥 AddScreen과 연동됨)
+  Future<void> addTodo(Todo todo) async {
+    // Hive에 추가
+    await _todoBox.add(todo);
+
+    // 메모리에도 반영
+    _todos = _todoBox.values.toList();
+
+    notifyListeners();
+  }
+
+  // ✅ 기존 할 일 수정 (optional)
+  Future<void> updateTodo(Todo todo) async {
+    await todo.save();
+    notifyListeners();
   }
 }
