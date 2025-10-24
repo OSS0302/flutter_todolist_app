@@ -1,0 +1,383 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:todolist/model/todo.dart';
+import 'package:todolist/presentation/list_view_model.dart';
+
+class AddEditScreen extends StatefulWidget {
+  final Todo? existingTodo; // ✅ 수정 시 전달받을 Todo
+
+  const AddEditScreen({super.key, this.existingTodo});
+
+  @override
+  State<AddEditScreen> createState() => _AddEditScreenState();
+}
+
+class _AddEditScreenState extends State<AddEditScreen> {
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _tagController = TextEditingController();
+
+  DateTime? _selectedDate;
+  String? _selectedPriority;
+  Color _selectedColor = const Color(0xFF4FACFE);
+  List<String> _tags = [];
+
+  bool get isEditing => widget.existingTodo != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // ✅ 수정 모드라면 기존 데이터 세팅
+    if (isEditing) {
+      final todo = widget.existingTodo!;
+      _titleController.text = todo.title;
+      _selectedDate = todo.dueDate;
+      _selectedPriority = todo.priority;
+      _selectedColor = Color(todo.color ?? 0xFF4FACFE);
+      _tags = List.from(todo.tags ?? []);
+    }
+  }
+
+  Future<void> _selectDueDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  void _addTag() {
+    final tag = _tagController.text.trim();
+    if (tag.isNotEmpty && !_tags.contains(tag)) {
+      setState(() {
+        _tags.add(tag);
+        _tagController.clear();
+      });
+    }
+  }
+
+  void _saveTodo() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) return;
+
+    final listViewModel = context.read<ListViewModel>();
+
+    if (isEditing) {
+      // ✅ 수정 모드
+      final todo = widget.existingTodo!;
+      todo.title = title;
+      todo.dueDate = _selectedDate;
+      todo.priority = _selectedPriority;
+      todo.color = _selectedColor.value;
+      todo.tags = _tags;
+
+      await listViewModel.updateTodo(todo);
+    } else {
+      // ✅ 추가 모드
+      final newTodo = Todo(
+        title: title,
+        dateTime: DateTime.now().millisecondsSinceEpoch,
+        dueDate: _selectedDate,
+        priority: _selectedPriority,
+        color: _selectedColor.value,
+        tags: _tags,
+        checklist: [],
+      );
+      await listViewModel.addTodo(newTodo);
+    }
+
+    if (mounted) Navigator.pop(context);
+  }
+
+  void _deleteTodo() async {
+    if (!isEditing) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("삭제 확인"),
+        content: const Text("정말로 이 할 일을 삭제하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("삭제", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await context.read<ListViewModel>().deleteTodo(widget.existingTodo!);
+      if (mounted) Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: Text(
+          isEditing ? "할 일 수정" : "할 일 추가",
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        actions: [
+          if (isEditing)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              onPressed: _deleteTodo,
+            )
+        ],
+      ),
+      body: Stack(
+        children: [
+          _buildBackground(),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      border: Border.all(color: Colors.white24, width: 1),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTitleInput(),
+                        const SizedBox(height: 20),
+                        _buildPrioritySelector(),
+                        const SizedBox(height: 20),
+                        _buildDateSelector(),
+                        const SizedBox(height: 20),
+                        _buildColorPicker(),
+                        const SizedBox(height: 20),
+                        _buildTagInput(),
+                        const SizedBox(height: 20),
+                        _buildSaveButton(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF141E30), Color(0xFF243B55)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitleInput() {
+    return TextField(
+      controller: _titleController,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: '할 일 제목',
+        labelStyle: const TextStyle(color: Colors.white70),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.05),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrioritySelector() {
+    final priorities = ['낮음', '보통', '높음'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("우선순위",
+            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14)),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: priorities.map((p) {
+            final isSelected = _selectedPriority == p;
+            return ChoiceChip(
+              label: Text(p),
+              selected: isSelected,
+              selectedColor: Colors.blueAccent,
+              backgroundColor: Colors.white12,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontWeight:
+                isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              onSelected: (_) => setState(() => _selectedPriority = p),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateSelector() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          _selectedDate == null
+              ? "마감일 미설정"
+              : "마감일: ${_selectedDate!.year}.${_selectedDate!.month}.${_selectedDate!.day}",
+          style: const TextStyle(color: Colors.white70),
+        ),
+        ElevatedButton.icon(
+          onPressed: _selectDueDate,
+          icon: const Icon(Icons.calendar_today, size: 18),
+          label: const Text("선택"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blueAccent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        )
+      ],
+    );
+  }
+
+  Widget _buildColorPicker() {
+    final colors = [
+      Colors.blueAccent,
+      Colors.pinkAccent,
+      Colors.amber,
+      Colors.greenAccent,
+      Colors.purpleAccent
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("색상 선택",
+            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14)),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: colors.map((c) {
+            final isSelected = _selectedColor == c;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedColor = c),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: isSelected ? 40 : 34,
+                height: isSelected ? 40 : 34,
+                decoration: BoxDecoration(
+                  color: c,
+                  shape: BoxShape.circle,
+                  border: isSelected
+                      ? Border.all(color: Colors.white, width: 3)
+                      : null,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTagInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("태그 추가",
+            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _tagController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: "예: 업무, 공부",
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon:
+              const Icon(Icons.add_circle, color: Colors.lightBlueAccent),
+              onPressed: _addTag,
+            ),
+          ],
+        ),
+        Wrap(
+          spacing: 6,
+          children: _tags
+              .map((t) => Chip(
+            label: Text(t),
+            backgroundColor: Colors.white10,
+            labelStyle: const TextStyle(color: Colors.white70),
+            deleteIcon:
+            const Icon(Icons.close, color: Colors.white54),
+            onDeleted: () =>
+                setState(() => _tags.removeWhere((tag) => tag == t)),
+          ))
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return Center(
+      child: ElevatedButton.icon(
+        onPressed: _saveTodo,
+        icon: const Icon(Icons.check),
+        label: Text(isEditing ? "수정하기" : "저장하기"),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.lightBlueAccent,
+          padding:
+          const EdgeInsets.symmetric(horizontal: 60, vertical: 14),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          textStyle: const TextStyle(
+              fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
