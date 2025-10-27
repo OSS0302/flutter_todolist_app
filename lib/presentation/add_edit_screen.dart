@@ -6,7 +6,7 @@ import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 
 class AddEditScreen extends StatefulWidget {
-  final Todo? existingTodo; // ✅ 수정 시 전달받을 Todo
+  final Todo? existingTodo; // 수정 모드일 때 전달받는 Todo
 
   const AddEditScreen({super.key, this.existingTodo});
 
@@ -17,11 +17,13 @@ class AddEditScreen extends StatefulWidget {
 class _AddEditScreenState extends State<AddEditScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _tagController = TextEditingController();
+  final TextEditingController _checklistController = TextEditingController();
 
   DateTime? _selectedDate;
   String? _selectedPriority;
   Color _selectedColor = const Color(0xFF4FACFE);
   List<String> _tags = [];
+  List<Map<String, dynamic>> _checklist = [];
 
   bool get isEditing => widget.existingTodo != null;
 
@@ -29,7 +31,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
   void initState() {
     super.initState();
 
-    // ✅ 수정 모드라면 기존 데이터 세팅
     if (isEditing) {
       final todo = widget.existingTodo!;
       _titleController.text = todo.title;
@@ -37,6 +38,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _selectedPriority = todo.priority;
       _selectedColor = Color(todo.color ?? 0xFF4FACFE);
       _tags = List.from(todo.tags ?? []);
+      _checklist = List<Map<String, dynamic>>.from(todo.checklist ?? []);
     }
   }
 
@@ -47,11 +49,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
-    }
+    if (picked != null) setState(() => _selectedDate = picked);
   }
 
   void _addTag() {
@@ -64,6 +62,28 @@ class _AddEditScreenState extends State<AddEditScreen> {
     }
   }
 
+  void _addChecklistItem() {
+    final text = _checklistController.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        _checklist.add({'text': text, 'isChecked': false});
+        _checklistController.clear();
+      });
+    }
+  }
+
+  void _toggleChecklistItem(int index) {
+    setState(() {
+      _checklist[index]['isChecked'] = !_checklist[index]['isChecked'];
+    });
+  }
+
+  void _deleteChecklistItem(int index) {
+    setState(() {
+      _checklist.removeAt(index);
+    });
+  }
+
   void _saveTodo() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
@@ -71,17 +91,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final listViewModel = context.read<ListViewModel>();
 
     if (isEditing) {
-      // ✅ 수정 모드
       final todo = widget.existingTodo!;
       todo.title = title;
       todo.dueDate = _selectedDate;
       todo.priority = _selectedPriority;
       todo.color = _selectedColor.value;
       todo.tags = _tags;
+      todo.checklist = _checklist;
 
       await listViewModel.updateTodo(todo);
     } else {
-      // ✅ 추가 모드
       final newTodo = Todo(
         title: title,
         dateTime: DateTime.now().millisecondsSinceEpoch,
@@ -89,7 +108,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
         priority: _selectedPriority,
         color: _selectedColor.value,
         tags: _tags,
-        checklist: [],
+        checklist: _checklist,
       );
       await listViewModel.addTodo(newTodo);
     }
@@ -141,7 +160,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
               onPressed: _deleteTodo,
-            )
+            ),
         ],
       ),
       body: Stack(
@@ -173,6 +192,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
                         _buildColorPicker(),
                         const SizedBox(height: 20),
                         _buildTagInput(),
+                        const SizedBox(height: 20),
+                        _buildChecklistSection(),
                         const SizedBox(height: 20),
                         _buildSaveButton(),
                       ],
@@ -235,8 +256,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
               backgroundColor: Colors.white12,
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : Colors.white70,
-                fontWeight:
-                isSelected ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
               onSelected: (_) => setState(() => _selectedPriority = p),
             );
@@ -357,6 +377,72 @@ class _AddEditScreenState extends State<AddEditScreen> {
                 setState(() => _tags.removeWhere((tag) => tag == t)),
           ))
               .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChecklistSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("체크리스트",
+            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _checklistController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: "예: 세부 작업 추가...",
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon:
+              const Icon(Icons.add_task, color: Colors.lightBlueAccent),
+              onPressed: _addChecklistItem,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Column(
+          children: _checklist.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Checkbox(
+                value: item['isChecked'],
+                onChanged: (_) => _toggleChecklistItem(index),
+                activeColor: Colors.lightBlueAccent,
+              ),
+              title: Text(
+                item['text'],
+                style: TextStyle(
+                  color: Colors.white,
+                  decoration: item['isChecked']
+                      ? TextDecoration.lineThrough
+                      : TextDecoration.none,
+                ),
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    color: Colors.white54, size: 20),
+                onPressed: () => _deleteChecklistItem(index),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
