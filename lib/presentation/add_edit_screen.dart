@@ -5,93 +5,142 @@ import 'package:provider/provider.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 
-class AddScreen extends StatefulWidget {
-  final int? todoId;
-  final String? todoTitle;
+class AddEditScreen extends StatefulWidget {
+  final Todo? existingTodo; // 수정 모드일 때 전달받는 Todo
 
-  const AddScreen({super.key, this.todoId, this.todoTitle});
+  const AddEditScreen({super.key, this.existingTodo});
 
   @override
-  State<AddScreen> createState() => _AddScreenState();
+  State<AddEditScreen> createState() => _AddEditScreenState();
 }
 
-class _AddScreenState extends State<AddScreen> {
+class _AddEditScreenState extends State<AddEditScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _tagController = TextEditingController();
+  final TextEditingController _checklistController = TextEditingController();
 
   DateTime? _selectedDate;
   String? _selectedPriority;
   Color _selectedColor = const Color(0xFF4FACFE);
   List<String> _tags = [];
+  List<Map<String, dynamic>> _checklist = [];
+
+  bool get isEditing => widget.existingTodo != null;
 
   @override
   void initState() {
     super.initState();
-    if (widget.todoTitle != null) {
-      _titleController.text = widget.todoTitle!;
+
+    if (isEditing) {
+      final todo = widget.existingTodo!;
+      _titleController.text = todo.title;
+      _selectedDate = todo.dueDate;
+      _selectedPriority = todo.priority;
+      _selectedColor = Color(todo.color ?? 0xFF4FACFE);
+      _tags = List.from(todo.tags ?? []);
+      _checklist = List<Map<String, dynamic>>.from(todo.checklist ?? []);
     }
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _tagController.dispose();
-    super.dispose();
-  }
-
-  /// 📅 날짜 선택 다이얼로그
   Future<void> _selectDueDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  void _addTag() {
+    final tag = _tagController.text.trim();
+    if (tag.isNotEmpty && !_tags.contains(tag)) {
+      setState(() {
+        _tags.add(tag);
+        _tagController.clear();
+      });
     }
   }
 
-  /// 🏷️ 태그 추가
-  void _addTag() {
-    final tag = _tagController.text.trim();
-    if (tag.isEmpty) return;
-
-    if (_tags.any((t) => t.toLowerCase() == tag.toLowerCase())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("이미 존재하는 태그입니다.")),
-      );
-      return;
+  void _addChecklistItem() {
+    final text = _checklistController.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        _checklist.add({'text': text, 'isChecked': false});
+        _checklistController.clear();
+      });
     }
+  }
 
+  void _toggleChecklistItem(int index) {
     setState(() {
-      _tags.add(tag);
-      _tagController.clear();
+      _checklist[index]['isChecked'] = !_checklist[index]['isChecked'];
     });
   }
 
-  /// 💾 할 일 저장
-  Future<void> _saveTodo() async {
+  void _deleteChecklistItem(int index) {
+    setState(() {
+      _checklist.removeAt(index);
+    });
+  }
+
+  void _saveTodo() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
 
-    final newTodo = Todo(
-      title: title,
-      dateTime: DateTime.now().millisecondsSinceEpoch,
-      dueDate: _selectedDate,
-      priority: _selectedPriority,
-      color: _selectedColor.value,
-      tags: _tags,
-      checklist: [],
+    final listViewModel = context.read<ListViewModel>();
+
+    if (isEditing) {
+      final todo = widget.existingTodo!;
+      todo.title = title;
+      todo.dueDate = _selectedDate;
+      todo.priority = _selectedPriority;
+      todo.color = _selectedColor.value;
+      todo.tags = _tags;
+      todo.checklist = _checklist;
+
+      await listViewModel.updateTodo(todo);
+    } else {
+      final newTodo = Todo(
+        title: title,
+        dateTime: DateTime.now().millisecondsSinceEpoch,
+        dueDate: _selectedDate,
+        priority: _selectedPriority,
+        color: _selectedColor.value,
+        tags: _tags,
+        checklist: _checklist,
+      );
+      await listViewModel.addTodo(newTodo);
+    }
+
+    if (mounted) Navigator.pop(context);
+  }
+
+  void _deleteTodo() async {
+    if (!isEditing) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("삭제 확인"),
+        content: const Text("정말로 이 할 일을 삭제하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("삭제", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
 
-    await context.read<ListViewModel>().addTodo(newTodo);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('할 일이 추가되었습니다!')),
-    );
-
-    Navigator.pop(context);
+    if (confirm == true) {
+      await context.read<ListViewModel>().deleteTodo(widget.existingTodo!);
+      if (mounted) Navigator.pop(context);
+    }
   }
 
   @override
@@ -99,10 +148,20 @@ class _AddScreenState extends State<AddScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text("할 일 추가", style: TextStyle(color: Colors.white)),
+        title: Text(
+          isEditing ? "할 일 수정" : "할 일 추가",
+          style: const TextStyle(color: Colors.white),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          if (isEditing)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              onPressed: _deleteTodo,
+            ),
+        ],
       ),
       body: Stack(
         children: [
@@ -134,6 +193,8 @@ class _AddScreenState extends State<AddScreen> {
                         const SizedBox(height: 20),
                         _buildTagInput(),
                         const SizedBox(height: 20),
+                        _buildChecklistSection(),
+                        const SizedBox(height: 20),
                         _buildSaveButton(),
                       ],
                     ),
@@ -147,7 +208,6 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
-  /// 🌈 배경
   Widget _buildBackground() {
     return Container(
       decoration: const BoxDecoration(
@@ -160,7 +220,6 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
-  /// 📝 제목 입력
   Widget _buildTitleInput() {
     return TextField(
       controller: _titleController,
@@ -171,13 +230,13 @@ class _AddScreenState extends State<AddScreen> {
         filled: true,
         fillColor: Colors.white.withOpacity(0.05),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
       ),
     );
   }
 
-  /// ⚡ 우선순위 선택
   Widget _buildPrioritySelector() {
     final priorities = ['낮음', '보통', '높음'];
     return Column(
@@ -207,7 +266,6 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
-  /// 📆 마감일 선택
   Widget _buildDateSelector() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -224,15 +282,15 @@ class _AddScreenState extends State<AddScreen> {
           label: const Text("선택"),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blueAccent,
-            shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         )
       ],
     );
   }
 
-  /// 🎨 색상 선택
   Widget _buildColorPicker() {
     final colors = [
       Colors.blueAccent,
@@ -261,8 +319,9 @@ class _AddScreenState extends State<AddScreen> {
                 decoration: BoxDecoration(
                   color: c,
                   shape: BoxShape.circle,
-                  border:
-                  isSelected ? Border.all(color: Colors.white, width: 3) : null,
+                  border: isSelected
+                      ? Border.all(color: Colors.white, width: 3)
+                      : null,
                 ),
               ),
             );
@@ -272,7 +331,6 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
-  /// 🏷️ 태그 추가
   Widget _buildTagInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,8 +350,9 @@ class _AddScreenState extends State<AddScreen> {
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.05),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
@@ -323,22 +382,86 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
-  /// ✅ 저장 버튼
+  Widget _buildChecklistSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("체크리스트",
+            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _checklistController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: "예: 세부 작업 추가...",
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon:
+              const Icon(Icons.add_task, color: Colors.lightBlueAccent),
+              onPressed: _addChecklistItem,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Column(
+          children: _checklist.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Checkbox(
+                value: item['isChecked'],
+                onChanged: (_) => _toggleChecklistItem(index),
+                activeColor: Colors.lightBlueAccent,
+              ),
+              title: Text(
+                item['text'],
+                style: TextStyle(
+                  color: Colors.white,
+                  decoration: item['isChecked']
+                      ? TextDecoration.lineThrough
+                      : TextDecoration.none,
+                ),
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    color: Colors.white54, size: 20),
+                onPressed: () => _deleteChecklistItem(index),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSaveButton() {
     return Center(
       child: ElevatedButton.icon(
-        onPressed:
-        _titleController.text.trim().isEmpty ? null : _saveTodo,
+        onPressed: _saveTodo,
         icon: const Icon(Icons.check),
-        label: const Text("저장하기"),
+        label: Text(isEditing ? "수정하기" : "저장하기"),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.lightBlueAccent,
           padding:
           const EdgeInsets.symmetric(horizontal: 60, vertical: 14),
           shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle:
-          const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          textStyle: const TextStyle(
+              fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );
