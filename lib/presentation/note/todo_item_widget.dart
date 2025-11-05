@@ -17,9 +17,11 @@ class _TodoCardState extends State<TodoCard> {
   bool _isExpanded = false;
 
   double get progress {
-    if (widget.todo.checklist!.isEmpty) return 0;
-    final checked = widget.todo.checklist?.where((c) => c['isChecked']).length;
-    return checked! / widget.todo.checklist!.length;
+    if (widget.todo.checklist == null || widget.todo.checklist!.isEmpty) {
+      return 0;
+    }
+    final checked = widget.todo.checklist!.where((c) => c['isChecked']).length;
+    return checked / widget.todo.checklist!.length;
   }
 
   @override
@@ -29,13 +31,12 @@ class _TodoCardState extends State<TodoCard> {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(widget.todo.color).withOpacity(0.15),
+        color: Color(widget.todo.color ?? 0xFF4FACFE).withOpacity(0.15), // ✅ 오류 해결
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white30, width: 1),
       ),
       child: Column(
         children: [
-          // 상단 줄
           Row(
             children: [
               Checkbox(
@@ -55,7 +56,6 @@ class _TodoCardState extends State<TodoCard> {
                 ),
               ),
 
-              // 진행률 원형 게이지
               SizedBox(
                 width: 32,
                 height: 32,
@@ -76,9 +76,7 @@ class _TodoCardState extends State<TodoCard> {
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
 
-              // 체크리스트 화면 이동
               IconButton(
                 icon: const Icon(Icons.checklist, color: Colors.white70),
                 onPressed: () {
@@ -91,7 +89,6 @@ class _TodoCardState extends State<TodoCard> {
                 },
               ),
 
-              // 펼치기
               IconButton(
                 icon: Icon(
                   _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
@@ -102,7 +99,6 @@ class _TodoCardState extends State<TodoCard> {
             ],
           ),
 
-          // 펼쳤을 때 체크리스트 표시
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
             child: !_isExpanded
@@ -110,7 +106,7 @@ class _TodoCardState extends State<TodoCard> {
                 : Column(
               children: [
                 const SizedBox(height: 8),
-                ...?widget.todo.checklist?.map((item) {
+                ...(widget.todo.checklist ?? []).map((item) {
                   return GestureDetector(
                     onTap: () {
                       setState(() => item['isChecked'] = !item['isChecked']);
@@ -148,7 +144,8 @@ class _TodoCardState extends State<TodoCard> {
                     ),
                   );
                 }).toList(),
-                if (widget.todo.checklist!.isEmpty)
+
+                if (widget.todo.checklist == null || widget.todo.checklist!.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text(
