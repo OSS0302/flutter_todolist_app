@@ -12,7 +12,7 @@ class ChecklistScreen extends StatefulWidget {
 }
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
-  final TextEditingController _controller = TextEditingController();
+  final controller = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -24,15 +24,14 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            /// 체크리스트 목록
             Expanded(
               child: ListView(
                 children: todo.checklist!.map((item) {
                   return CheckboxListTile(
                     value: item['isChecked'],
                     title: Text(item['title']),
-                    onChanged: (value) {
-                      setState(() => item['isChecked'] = value);
+                    onChanged: (v) {
+                      setState(() => item['isChecked'] = v);
                       todo.save();
                       context.read<ListViewModel>().refresh();
                     },
@@ -41,27 +40,25 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               ),
             ),
 
-            /// 새로운 항목 추가
             Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: _controller,
-                    decoration:
-                    const InputDecoration(labelText: "체크리스트 추가"),
+                    controller: controller,
+                    decoration: const InputDecoration(labelText: "체크리스트 추가"),
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add),
                   onPressed: () {
-                    if (_controller.text.trim().isEmpty) return;
+                    if (controller.text.trim().isEmpty) return;
 
                     setState(() {
-                      todo.checklist?.add({
-                        "title": _controller.text.trim(),
+                      todo.checklist!.add({
+                        "title": controller.text.trim(),
                         "isChecked": false,
                       });
-                      _controller.clear();
+                      controller.clear();
                     });
 
                     todo.save();
