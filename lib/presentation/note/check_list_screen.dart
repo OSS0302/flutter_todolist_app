@@ -15,6 +15,16 @@ class ChecklistScreen extends StatefulWidget {
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final controller = TextEditingController();
 
+  void _sortChecklist() {
+    final list = widget.todo.checklist!;
+    list.sort((a, b) {
+      final aChecked = a['isChecked'] == true;
+      final bChecked = b['isChecked'] == true;
+      if (aChecked == bChecked) return 0;
+      return aChecked ? 1 : -1; // 체크된 항목을 뒤로
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final todo = widget.todo;
@@ -45,7 +55,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               children: [
                 for (int i = 0; i < todo.checklist!.length; i++)
                   Slidable(
-                    key: ValueKey(i),
+                    key: ValueKey("item_$i"),
                     endActionPane: ActionPane(
                       motion: const DrawerMotion(),
                       children: [
@@ -63,26 +73,68 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                         ),
                       ],
                     ),
-                    child: CheckboxListTile(
-                      key: ValueKey("item_$i"),
-                      value: todo.checklist![i]['isChecked'],
-                      onChanged: (v) {
-                        setState(() => todo.checklist![i]['isChecked'] = v);
-                        todo.save();
-                        context.read<ListViewModel>().refresh();
-                      },
-                      title: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 200),
-                        style: TextStyle(
-                          color: todo.checklist![i]['isChecked']
-                              ? Colors.grey
-                              : Colors.black,
-                          decoration: todo.checklist![i]['isChecked']
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
-                          fontSize: 16,
-                        ),
-                        child: Text(todo.checklist![i]['title']),
+                    child: ListTile(
+                      title: Row(
+                        children: [
+                          Checkbox(
+                            value: todo.checklist![i]['isChecked'],
+                            onChanged: (v) {
+                              setState(() {
+                                todo.checklist![i]['isChecked'] = v;
+                                _sortChecklist();
+                              });
+                              todo.save();
+                              context.read<ListViewModel>().refresh();
+                            },
+                          ),
+                          Expanded(
+                            child: AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 200),
+                              style: TextStyle(
+                                color: todo.checklist![i]['isChecked']
+                                    ? Colors.grey
+                                    : Colors.black,
+                                decoration: todo.checklist![i]['isChecked']
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                                fontSize: 16,
+                              ),
+                              child:
+                              Text(todo.checklist![i]['title']),
+                            ),
+                          ),
+
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_upward),
+                                onPressed: i == 0
+                                    ? null
+                                    : () {
+                                  setState(() {
+                                    final item = todo.checklist!.removeAt(i);
+                                    todo.checklist!.insert(i - 1, item);
+                                  });
+                                  todo.save();
+                                  context.read<ListViewModel>().refresh();
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.arrow_downward),
+                                onPressed: i == todo.checklist!.length - 1
+                                    ? null
+                                    : () {
+                                  setState(() {
+                                    final item = todo.checklist!.removeAt(i);
+                                    todo.checklist!.insert(i + 1, item);
+                                  });
+                                  todo.save();
+                                  context.read<ListViewModel>().refresh();
+                                },
+                              ),
+                            ],
+                          )
+                        ],
                       ),
                     ),
                   )
@@ -117,6 +169,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                         "isChecked": false,
                       });
                       controller.clear();
+                      _sortChecklist();
                     });
 
                     todo.save();
