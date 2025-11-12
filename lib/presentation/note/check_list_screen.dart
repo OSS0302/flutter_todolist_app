@@ -14,46 +14,110 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final controller = TextEditingController();
+  bool hideCompleted = false;
 
+  /// ✅ 완료 항목 정렬 (완료 → 아래)
   void _sortChecklist() {
     final list = widget.todo.checklist!;
     list.sort((a, b) {
       final aChecked = a['isChecked'] == true;
       final bChecked = b['isChecked'] == true;
       if (aChecked == bChecked) return 0;
-      return aChecked ? 1 : -1; // 체크된 항목을 뒤로
+      return aChecked ? 1 : -1;
     });
+  }
+
+  /// ✅ 전체 완료
+  void _checkAll() {
+    setState(() {
+      for (var item in widget.todo.checklist!) {
+        item['isChecked'] = true;
+      }
+      _sortChecklist();
+    });
+    widget.todo.save();
+    context.read<ListViewModel>().refresh();
+  }
+
+  /// ✅ 전체 해제
+  void _uncheckAll() {
+    setState(() {
+      for (var item in widget.todo.checklist!) {
+        item['isChecked'] = false;
+      }
+    });
+    widget.todo.save();
+    context.read<ListViewModel>().refresh();
   }
 
   @override
   Widget build(BuildContext context) {
     final todo = widget.todo;
+    final checklist = todo.checklist ?? [];
+
+    final total = checklist.length;
+    final done = checklist.where((e) => e['isChecked'] == true).length;
+    final progress = total == 0 ? 0 : done / total;
+
+    final visibleItems = hideCompleted
+        ? checklist.where((e) => e['isChecked'] == false).toList()
+        : checklist;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("체크리스트 편집")),
+      appBar: AppBar(
+        title: Text("체크리스트 (${done}/${total})"),
+        actions: [
+          IconButton(
+            tooltip: hideCompleted ? "완료 항목 보기" : "완료 항목 숨기기",
+            icon: Icon(
+              hideCompleted ? Icons.visibility_off : Icons.visibility,
+            ),
+            onPressed: () => setState(() => hideCompleted = !hideCompleted),
+          ),
+          PopupMenuButton(
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'checkAll', child: Text("전체 완료")),
+              const PopupMenuItem(value: 'uncheckAll', child: Text("전체 해제")),
+            ],
+            onSelected: (value) {
+              if (value == 'checkAll') _checkAll();
+              if (value == 'uncheckAll') _uncheckAll();
+            },
+          )
+        ],
+      ),
+
       body: Column(
         children: [
+          /// ✅ Progress Bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 7,
+              borderRadius: BorderRadius.circular(8),
+              backgroundColor: Colors.grey[300],
+            ),
+          ),
+
           Expanded(
-            child: todo.checklist == null || todo.checklist!.isEmpty
+            child: visibleItems.isEmpty
                 ? const Center(
-              child: Text(
-                "체크리스트를 추가해주세요",
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
+              child: Text("체크리스트가 비어있어요",
+                  style: TextStyle(color: Colors.grey)),
             )
                 : ReorderableListView(
-              padding: const EdgeInsets.all(10),
-              onReorder: (oldIndex, newIndex) async {
+              onReorder: (oldIndex, newIndex) {
                 setState(() {
                   if (newIndex > oldIndex) newIndex--;
                   final item = todo.checklist!.removeAt(oldIndex);
                   todo.checklist!.insert(newIndex, item);
                 });
-                await todo.save();
+                todo.save();
                 context.read<ListViewModel>().refresh();
               },
               children: [
-                for (int i = 0; i < todo.checklist!.length; i++)
+                for (int i = 0; i < visibleItems.length; i++)
                   Slidable(
                     key: ValueKey("item_$i"),
                     endActionPane: ActionPane(
@@ -64,9 +128,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                           label: "삭제",
                           icon: Icons.delete,
                           onPressed: (_) {
-                            setState(() {
-                              todo.checklist!.removeAt(i);
-                            });
+                            setState(() => checklist.removeAt(i));
                             todo.save();
                             context.read<ListViewModel>().refresh();
                           },
@@ -76,64 +138,87 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                     child: ListTile(
                       title: Row(
                         children: [
-                          Checkbox(
-                            value: todo.checklist![i]['isChecked'],
-                            onChanged: (v) {
+                          /// ✅ 애니메이션 체크 효과
+                          GestureDetector(
+                            onTap: () {
                               setState(() {
-                                todo.checklist![i]['isChecked'] = v;
+                                visibleItems[i]['isChecked'] =
+                                !visibleItems[i]['isChecked'];
                                 _sortChecklist();
                               });
                               todo.save();
                               context.read<ListViewModel>().refresh();
                             },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.blue, width: 2),
+                                color: visibleItems[i]['isChecked']
+                                    ? Colors.blue
+                                    : Colors.white,
+                              ),
+                              child: visibleItems[i]['isChecked']
+                                  ? const Icon(Icons.check,
+                                  size: 18, color: Colors.white)
+                                  : null,
+                            ),
                           ),
+                          const SizedBox(width: 12),
+
+                          /// ✅ 취소선 애니메이션
                           Expanded(
                             child: AnimatedDefaultTextStyle(
-                              duration: const Duration(milliseconds: 200),
+                              duration:
+                              const Duration(milliseconds: 300),
                               style: TextStyle(
-                                color: todo.checklist![i]['isChecked']
-                                    ? Colors.grey
-                                    : Colors.black,
-                                decoration: todo.checklist![i]['isChecked']
+                                decoration: visibleItems[i]['isChecked']
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
+                                color: visibleItems[i]['isChecked']
+                                    ? Colors.grey
+                                    : Colors.black,
                                 fontSize: 16,
                               ),
-                              child:
-                              Text(todo.checklist![i]['title']),
+                              child: Text(visibleItems[i]['title']),
                             ),
                           ),
 
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.arrow_upward),
-                                onPressed: i == 0
-                                    ? null
-                                    : () {
-                                  setState(() {
-                                    final item = todo.checklist!.removeAt(i);
-                                    todo.checklist!.insert(i - 1, item);
-                                  });
-                                  todo.save();
-                                  context.read<ListViewModel>().refresh();
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.arrow_downward),
-                                onPressed: i == todo.checklist!.length - 1
-                                    ? null
-                                    : () {
-                                  setState(() {
-                                    final item = todo.checklist!.removeAt(i);
-                                    todo.checklist!.insert(i + 1, item);
-                                  });
-                                  todo.save();
-                                  context.read<ListViewModel>().refresh();
-                                },
-                              ),
-                            ],
-                          )
+                          /// ✅ 우선순위 버튼
+                          IconButton(
+                            icon: const Icon(Icons.arrow_upward),
+                            onPressed: i == 0
+                                ? null
+                                : () {
+                              setState(() {
+                                final item =
+                                visibleItems.removeAt(i);
+                                visibleItems.insert(i - 1, item);
+                              });
+                              todo.save();
+                              context
+                                  .read<ListViewModel>()
+                                  .refresh();
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_downward),
+                            onPressed:
+                            i == visibleItems.length - 1 ? null : () {
+                              setState(() {
+                                final item =
+                                visibleItems.removeAt(i);
+                                visibleItems.insert(i + 1, item);
+                              });
+                              todo.save();
+                              context
+                                  .read<ListViewModel>()
+                                  .refresh();
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -142,10 +227,10 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             ),
           ),
 
-          const Divider(),
-
+          /// ✅ 추가 입력창
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding:
+            const EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 5),
             child: Row(
               children: [
                 Expanded(
@@ -163,8 +248,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                     if (controller.text.trim().isEmpty) return;
 
                     setState(() {
-                      todo.checklist ??= [];
-                      todo.checklist!.add({
+                      checklist.add({
                         "title": controller.text.trim(),
                         "isChecked": false,
                       });
