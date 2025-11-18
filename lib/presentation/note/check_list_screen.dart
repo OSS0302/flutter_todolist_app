@@ -31,19 +31,20 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     super.dispose();
   }
 
-
+  // ● 정렬 규칙
   void _sortChecklist() {
     widget.todo.checklist!.sort((a, b) {
-      // 1) 고정(Pinned) 우선
+      // 1) 고정(Pinned)
       final aPinned = a['pinned'] == true;
       final bPinned = b['pinned'] == true;
       if (aPinned != bPinned) return aPinned ? -1 : 1;
 
-      // 2) 중요도 우선 (2 > 1 > 0)
+      // 2) 중요도 (2 > 1 > 0)
       final aPr = a['priority'] ?? 1;
       final bPr = b['priority'] ?? 1;
       if (aPr != bPr) return bPr - aPr;
 
+      // 3) 완료 상태
       final aChecked = a['isChecked'] == true;
       final bChecked = b['isChecked'] == true;
       if (aChecked != bChecked) return aChecked ? 1 : -1;
@@ -52,6 +53,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     });
   }
 
+  // ● 전체 체크
   void _checkAll() {
     setState(() {
       for (var item in widget.todo.checklist!) {
@@ -63,6 +65,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     context.read<ListViewModel>().refresh();
   }
 
+  // ● 전체 해제
   void _uncheckAll() {
     setState(() {
       for (var item in widget.todo.checklist!) {
@@ -72,6 +75,54 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     });
     widget.todo.save();
     context.read<ListViewModel>().refresh();
+  }
+
+  // ● 항목 수정 기능
+  void _editItem(Map<String, dynamic> item) {
+    final editController = TextEditingController(text: item['title']);
+    int priority = item['priority'];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: editController,
+                decoration: const InputDecoration(labelText: "항목 수정"),
+              ),
+              const SizedBox(height: 14),
+              DropdownButton<int>(
+                value: priority,
+                items: const [
+                  DropdownMenuItem(value: 2, child: Text("🔥 중요")),
+                  DropdownMenuItem(value: 1, child: Text("⭐ 보통")),
+                  DropdownMenuItem(value: 0, child: Text("⬇️ 낮음")),
+                ],
+                onChanged: (v) => priority = v!,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    item['title'] = editController.text.trim();
+                    item['priority'] = priority;
+                    _sortChecklist();
+                  });
+
+                  widget.todo.save();
+                  Navigator.pop(context);
+                },
+                child: const Text("저장"),
+              )
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -109,10 +160,9 @@ class _ChecklistScreenState extends State<ChecklistScreen>
         ],
       ),
 
-
       body: Column(
         children: [
-          // 진행률 ProgressBar
+          // 진행률 표시바
           Padding(
             padding: const EdgeInsets.all(16),
             child: TweenAnimationBuilder<double>(
@@ -128,6 +178,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             ),
           ),
 
+          // ● ReorderableListView — 순서 드래그 기능
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
@@ -137,9 +188,25 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                 child: Text("체크리스트가 비어있어요",
                     style: TextStyle(color: Colors.grey)),
               )
-                  : ListView.builder(
+                  : ReorderableListView.builder(
                 key: ValueKey("list"),
                 itemCount: visibleItems.length,
+                onReorder: (oldIndex, newIndex) {
+                  setState(() {
+                    if (newIndex > oldIndex) newIndex--;
+
+                    final item = visibleItems.removeAt(oldIndex);
+                    visibleItems.insert(newIndex, item);
+
+                    // 실제 checklist에도 반영
+                    checklist
+                      ..clear()
+                      ..addAll(visibleItems);
+                  });
+
+                  todo.save();
+                  context.read<ListViewModel>().refresh();
+                },
                 itemBuilder: (context, i) {
                   final item = visibleItems[i];
                   final isChecked = item['isChecked'] == true;
@@ -149,169 +216,149 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                     key: ValueKey(item),
                     opacity: isChecked && hideCompleted ? 0.0 : 1.0,
                     duration: const Duration(milliseconds: 300),
-                    child: Dismissible(
-                      key: UniqueKey(),
-                      direction: DismissDirection.endToStart,
-                      onDismissed: (_) {
-                        setState(() => checklist.remove(item));
-                        todo.save();
-                        context.read<ListViewModel>().refresh();
-                      },
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child:
-                        const Icon(Icons.delete, color: Colors.white),
+                    child: Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
+                      child: ListTile(
+                        onLongPress: () => _editItem(item),
 
+                        title: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  item['isChecked'] = !isChecked;
+                                });
 
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                        child: Card(
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: ListTile(
-                            title: Row(
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      item['isChecked'] = !isChecked;
-                                      _sortChecklist();
-                                    });
-                                    _animationController.forward(from: 0);
-                                    todo.save();
-                                    context.read<ListViewModel>().refresh();
-                                  },
-                                  child: ScaleTransition(
-                                    scale: Tween<double>(
-                                      begin: 1.0,
-                                      end: 1.3,
-                                    ).animate(CurvedAnimation(
-                                      parent: _animationController,
-                                      curve: Curves.easeOut,
-                                    )),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 250),
-                                      width: 26,
-                                      height: 26,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.blueAccent,
-                                          width: 2,
-                                        ),
-                                        color: isChecked
-                                            ? Colors.blueAccent
-                                            : Colors.white,
-                                        boxShadow: isChecked
-                                            ? [
-                                          BoxShadow(
-                                            color: Colors.blueAccent
-                                                .withOpacity(0.5),
-                                            blurRadius: 8,
-                                            spreadRadius: 1,
-                                          )
-                                        ]
-                                            : [],
-                                      ),
-                                      child: isChecked
-                                          ? const Icon(Icons.check,
-                                          size: 18,
-                                          color: Colors.white)
-                                          : null,
-                                    ),
-                                  ),
-                                ),
+                                _animationController.forward(from: 0);
 
-                                const SizedBox(width: 12),
-
-                                Container(
-                                  width: 10,
-                                  height: 10,
+                                // ● 완료/해제 시 자동 정렬 애니메이션
+                                Future.delayed(const Duration(milliseconds: 250), () {
+                                  setState(() => _sortChecklist());
+                                  todo.save();
+                                  context.read<ListViewModel>().refresh();
+                                });
+                              },
+                              child: ScaleTransition(
+                                scale: Tween<double>(
+                                  begin: 1.0,
+                                  end: 1.3,
+                                ).animate(CurvedAnimation(
+                                  parent: _animationController,
+                                  curve: Curves.easeOut,
+                                )),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  width: 26,
+                                  height: 26,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: priority == 2
-                                        ? Colors.red
-                                        : priority == 1
-                                        ? Colors.blue
-                                        : Colors.grey,
-                                  ),
-                                ),
-
-                                const SizedBox(width: 8),
-
-                                Expanded(
-                                  child: AnimatedDefaultTextStyle(
-                                    duration:
-                                    const Duration(milliseconds: 300),
-                                    style: TextStyle(
-                                      decoration: isChecked
-                                          ? TextDecoration.lineThrough
-                                          : TextDecoration.none,
-                                      color: isChecked
-                                          ? Colors.grey
-                                          : Colors.black,
-                                      fontSize: 16,
+                                    border: Border.all(
+                                      color: Colors.blueAccent,
+                                      width: 2,
                                     ),
-                                    child: Text(item['title']),
+                                    color: isChecked ? Colors.blueAccent : Colors.white,
+                                    boxShadow: isChecked
+                                        ? [
+                                      BoxShadow(
+                                        color: Colors.blueAccent.withOpacity(0.5),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      )
+                                    ]
+                                        : [],
                                   ),
+                                  child: isChecked
+                                      ? const Icon(Icons.check,
+                                      size: 18, color: Colors.white)
+                                      : null,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: priority == 2
+                                    ? Colors.red
+                                    : priority == 1
+                                    ? Colors.blue
+                                    : Colors.grey,
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            Expanded(
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 300),
+                                style: TextStyle(
+                                  decoration: isChecked
+                                      ? TextDecoration.lineThrough
+                                      : TextDecoration.none,
+                                  color: isChecked ? Colors.grey : Colors.black,
+                                  fontSize: 16,
+                                ),
+                                child: Text(item['title']),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            PopupMenuButton(
+                              icon: const Icon(Icons.flag),
+                              onSelected: (value) {
+                                setState(() {
+                                  item['priority'] = value;
+                                  _sortChecklist();
+                                });
+                                todo.save();
+                                context.read<ListViewModel>().refresh();
+                              },
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(
+                                  value: 2,
+                                  child: Text("🔥 중요"),
+                                ),
+                                const PopupMenuItem(
+                                  value: 1,
+                                  child: Text("⭐ 보통"),
+                                ),
+                                const PopupMenuItem(
+                                  value: 0,
+                                  child: Text("⬇️ 낮음"),
                                 ),
                               ],
                             ),
 
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                /// 중요도 선택
-                                PopupMenuButton(
-                                  icon: const Icon(Icons.flag),
-                                  onSelected: (value) {
-                                    setState(() {
-                                      item['priority'] = value;
-                                      _sortChecklist();
-                                    });
-                                    todo.save();
-                                    context.read<ListViewModel>().refresh();
-                                  },
-                                  itemBuilder: (_) => [
-                                    const PopupMenuItem(
-                                        value: 2, child: Text("🔥 중요")),
-                                    const PopupMenuItem(
-                                        value: 1, child: Text("⭐ 보통")),
-                                    const PopupMenuItem(
-                                        value: 0, child: Text("⬇️ 낮음")),
-                                  ],
-                                ),
-
-                                /// 고정 버튼
-                                IconButton(
-                                  icon: Icon(
-                                    item['pinned'] == true
-                                        ? Icons.push_pin
-                                        : Icons.push_pin_outlined,
-                                    color: item['pinned'] == true
-                                        ? Colors.orange
-                                        : Colors.grey,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      item['pinned'] =
-                                      !(item['pinned'] == true);
-                                      _sortChecklist();
-                                    });
-                                    todo.save();
-                                    context
-                                        .read<ListViewModel>()
-                                        .refresh();
-                                  },
-                                ),
-                              ],
+                            IconButton(
+                              icon: Icon(
+                                item['pinned'] == true
+                                    ? Icons.push_pin
+                                    : Icons.push_pin_outlined,
+                                color:
+                                item['pinned'] == true ? Colors.orange : Colors.grey,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  item['pinned'] = !(item['pinned'] == true);
+                                  _sortChecklist();
+                                });
+                                todo.save();
+                                context.read<ListViewModel>().refresh();
+                              },
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
@@ -321,10 +368,9 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             ),
           ),
 
-
+          // 새 항목 추가
           Padding(
-            padding:
-            const EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 5),
+            padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 5),
             child: Row(
               children: [
                 Expanded(
