@@ -13,16 +13,20 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen>
     with SingleTickerProviderStateMixin {
-  final controller = TextEditingController(); // new item text
+  final controller = TextEditingController();
   final searchController = TextEditingController();
   bool hideCompleted = false;
   String searchQuery = "";
   late AnimationController _animationController;
 
-  // Undo support
   Map<String, dynamic>? _lastRemovedItem;
   int? _lastRemovedIndex;
   String? _lastRemovedGroup;
+
+  List<String> _groups = [];
+  String _selectedGroup = '기본';
+
+  Map<String, bool> _groupExpanded = {};
 
   @override
   void initState() {
@@ -30,14 +34,33 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     _animationController =
         AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
 
-    // ensure all items have a group key
     final checklist = widget.todo.checklist ?? [];
     for (var item in checklist) {
       item['group'] = item['group'] ?? '기본';
       item['priority'] = item['priority'] ?? 1;
       item['isChecked'] = item['isChecked'] == true;
       item['pinned'] = item['pinned'] == true;
+      if (!_groups.contains(item['group'])) _groups.add(item['group']);
     }
+
+    if (!_groups.contains('기본')) _groups.insert(0, '기본');
+
+    // try to load saved expansion states from todo (if model supports a 'meta' map)
+    try {
+      final meta = widget.todo.meta ?? {};
+      final saved = meta['groupExpanded'];
+      if (saved is Map) {
+        saved.forEach((k, v) {
+          _groupExpanded[k] = v == true;
+        });
+      }
+    } catch (_) {}
+
+    for (var g in _groups) {
+      _groupExpanded.putIfAbsent(g, () => true);
+    }
+
+    _selectedGroup = _groups.isNotEmpty ? _groups.first : '기본';
   }
 
   @override
@@ -46,6 +69,45 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     searchController.dispose();
     controller.dispose();
     super.dispose();
+  }
+
+  void _persistGroupExpandedStates() {
+    try {
+      widget.todo.meta ??= {};
+      widget.todo.meta!['groupExpanded'] = Map<String, bool>.from(_groupExpanded);
+      widget.todo.save();
+    } catch (_) {}
+  }
+
+  void _addGroup(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    if (!_groups.contains(trimmed)) {
+      setState(() {
+        _groups.add(trimmed);
+        _groupExpanded.putIfAbsent(trimmed, () => true);
+        _selectedGroup = trimmed;
+      });
+      _saveAndRefresh();
+    }
+  }
+
+  void _deleteGroup(String name) {
+    if (name == '기본') return;
+
+    setState(() {
+      _groups.remove(name);
+      _groupExpanded.remove(name);
+
+      widget.todo.checklist ??= [];
+      for (var item in widget.todo.checklist!) {
+        if ((item['group'] ?? '기본') == name) item['group'] = '기본';
+      }
+
+      if (!_groups.contains('기본')) _groups.insert(0, '기본');
+      _selectedGroup = _groups.first;
+    });
+    _saveAndRefresh();
   }
 
   void _sortChecklist() {
@@ -68,6 +130,8 @@ class _ChecklistScreenState extends State<ChecklistScreen>
   }
 
   void _saveAndRefresh() {
+    _persistGroupExpandedStates();
+
     widget.todo.save();
     context.read<ListViewModel>().refresh();
   }
@@ -88,7 +152,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     _saveAndRefresh();
   }
 
-  // Edit bottom sheet (title, priority, group)
   void _editItem(Map<String, dynamic> item) {
     final editController = TextEditingController(text: item['title'] ?? '');
     int priority = item['priority'] ?? 1;
@@ -150,6 +213,13 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                           item['title'] = newTitle;
                           item['priority'] = priority;
                           item['group'] = group.isEmpty ? '기본' : group;
+
+                          // ensure group list includes this group
+                          if (!_groups.contains(item['group'])) {
+                            _groups.add(item['group']);
+                            _groupExpanded.putIfAbsent(item['group'], () => true);
+                          }
+
                           _sortChecklist();
                         });
                         _saveAndRefresh();
@@ -168,7 +238,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     );
   }
 
-  // Add new item (allow group input)
   void _addNewItem() {
     final text = controller.text.trim();
     if (text.isEmpty) return;
@@ -179,17 +248,20 @@ class _ChecklistScreenState extends State<ChecklistScreen>
         "isChecked": false,
         "priority": 1,
         "pinned": false,
-        "group": "기본",
+        "group": _selectedGroup,
       });
+
+      if (!_groups.contains(_selectedGroup)) _groups.add(_selectedGroup);
+
       controller.clear();
       _sortChecklist();
     });
     _saveAndRefresh();
   }
 
-  // Build grouped map: groupName -> List<item>
   Map<String, List<Map<String, dynamic>>> _groupedItems(List<Map<String, dynamic>> input) {
     final Map<String, List<Map<String, dynamic>>> map = {};
+    for (var g in _groups) map[g] = [];
     for (var item in input) {
       final g = (item['group'] ?? '기본') as String;
       map.putIfAbsent(g, () => []);
@@ -198,7 +270,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     return map;
   }
 
-  // Remove item with undo
   void _removeItem(Map<String, dynamic> item, String groupName) {
     final checklist = widget.todo.checklist!;
     final index = checklist.indexOf(item);
@@ -220,7 +291,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
         action: SnackBarAction(
           label: '취소',
           onPressed: () {
-            // undo
             if (_lastRemovedItem != null && _lastRemovedIndex != null) {
               setState(() {
                 final list = widget.todo.checklist!;
@@ -239,7 +309,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     )
         .closed
         .then((_) {
-      // clear stored undo after snackbar closes if not undone
       _lastRemovedItem = null;
       _lastRemovedIndex = null;
       _lastRemovedGroup = null;
@@ -251,7 +320,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     final todo = widget.todo;
     final checklist = todo.checklist ?? [];
 
-    // Filter by search & hideCompleted
     final filtered = checklist.where((e) {
       final title = (e['title'] ?? '') as String;
       if (hideCompleted && (e['isChecked'] == true)) return false;
@@ -261,12 +329,11 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       return true;
     }).toList();
 
-    // Ensure groups exist
     for (var it in filtered) {
       it['group'] = it['group'] ?? '기본';
+      if (!_groups.contains(it['group'])) _groups.add(it['group']);
     }
 
-    // pinned items for banner (satisfy filters too)
     final pinnedItems = filtered.where((e) => e['pinned'] == true).toList();
 
     final total = checklist.length;
@@ -288,17 +355,73 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'checkAll', child: Text("전체 완료")),
               const PopupMenuItem(value: 'uncheckAll', child: Text("전체 해제")),
+              const PopupMenuItem(value: 'manageGroups', child: Text("그룹 관리")),
             ],
             onSelected: (value) {
               if (value == 'checkAll') _checkAll();
               if (value == 'uncheckAll') _uncheckAll();
+              if (value == 'manageGroups') {
+                showDialog(
+                  context: context,
+                  builder: (ctx) {
+                    final addController = TextEditingController();
+                    return AlertDialog(
+                      title: const Text('그룹 관리'),
+                      content: SizedBox(
+                        width: double.maxFinite,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: addController,
+                              decoration: const InputDecoration(hintText: '새 그룹명'),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () {
+                                _addGroup(addController.text);
+                                Navigator.of(ctx).pop();
+                              },
+                              child: const Text('추가'),
+                            ),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            Text('기존 그룹', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Flexible(
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: _groups.length,
+                                itemBuilder: (c, i) {
+                                  final g = _groups[i];
+                                  return ListTile(
+                                    title: Text(g),
+                                    trailing: g == '기본'
+                                        ? null
+                                        : IconButton(
+                                      icon: const Icon(Icons.delete_outline),
+                                      onPressed: () {
+                                        _deleteGroup(g);
+                                        Navigator.of(ctx).pop();
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }
             },
           )
         ],
       ),
       body: Column(
         children: [
-          // Progress bar
           Padding(
             padding: const EdgeInsets.all(16),
             child: TweenAnimationBuilder<double>(
@@ -314,7 +437,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             ),
           ),
 
-          // Search field
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
@@ -343,7 +465,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
 
           const SizedBox(height: 12),
 
-          // Pinned banner
           if (pinnedItems.isNotEmpty)
             SizedBox(
               height: 110,
@@ -450,7 +571,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
 
           const SizedBox(height: 8),
 
-          // List area (groups, each group is an ExpansionTile containing a ReorderableListView)
           Expanded(
             child: grouped.isEmpty
                 ? const Center(child: Text("체크리스트가 비어있어요", style: TextStyle(color: Colors.grey)))
@@ -473,9 +593,73 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                             Chip(label: Text("${items.length}")),
                           ],
                         ),
-                        initiallyExpanded: true,
+                        initiallyExpanded: _groupExpanded[groupName] ?? true,
+                        onExpansionChanged: (v) {
+                          setState(() => _groupExpanded[groupName] = v);
+                          _persistGroupExpandedStates();
+                        },
                         children: [
-                          // ReorderableListView inside ExpansionTile
+                          // small header actions for group
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 8),
+                                const Spacer(),
+                                PopupMenuButton(
+                                  itemBuilder: (_) => [
+                                    const PopupMenuItem(value: 'addToGroup', child: Text('이 그룹에 새 항목 추가')),
+                                    const PopupMenuItem(value: 'deleteGroup', child: Text('그룹 삭제')),
+                                  ],
+                                  onSelected: (v) {
+                                    if (v == 'addToGroup') {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        builder: (ctx) {
+                                          final addCtrl = TextEditingController();
+                                          return Padding(
+                                            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 16, right: 16, top: 16),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                TextField(controller: addCtrl, decoration: const InputDecoration(labelText: '새 항목')),
+                                                const SizedBox(height: 12),
+                                                ElevatedButton(
+                                                  onPressed: () {
+                                                    final t = addCtrl.text.trim();
+                                                    if (t.isEmpty) return;
+                                                    setState(() {
+                                                      widget.todo.checklist ??= [];
+                                                      widget.todo.checklist!.add({
+                                                        'title': t,
+                                                        'isChecked': false,
+                                                        'priority': 1,
+                                                        'pinned': false,
+                                                        'group': groupName,
+                                                      });
+                                                      if (!_groups.contains(groupName)) _groups.add(groupName);
+                                                      _sortChecklist();
+                                                    });
+                                                    _saveAndRefresh();
+                                                    Navigator.pop(ctx);
+                                                  },
+                                                  child: const Text('추가'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    } else if (v == 'deleteGroup') {
+                                      _deleteGroup(groupName);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+
                           ReorderableListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
@@ -486,13 +670,9 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                                 final item = items.removeAt(oldIndex);
                                 items.insert(newIndex, item);
 
-                                // reflect into actual checklist by rebuilding checklist: remove all items from this group and re-insert in same group order
                                 final all = widget.todo.checklist!;
-                                // remove items belonging to this group
                                 all.removeWhere((it) => (it['group'] ?? '기본') == groupName);
-                                // find first index to insert: we'll append at end to keep pinned/priority order minimal disturbance
                                 all.addAll(items);
-                                // Keep other items intact (simple approach). Finally sort global according to pinned/priority/checked to keep invariants
                                 _sortChecklist();
                               });
                               _saveAndRefresh();
@@ -518,7 +698,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                                 ),
                                 confirmDismiss: (direction) async {
                                   if (direction == DismissDirection.startToEnd) {
-                                    // toggle complete
                                     setState(() {
                                       item['isChecked'] = !(item['isChecked'] == true);
                                     });
@@ -529,7 +708,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                                     });
                                     return false; // don't remove from list
                                   } else {
-                                    // endToStart -> delete
                                     _removeItem(item, groupName);
                                     return true;
                                   }
@@ -640,11 +818,16 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             ),
           ),
 
-          // Add new item bar
           Padding(
             padding: const EdgeInsets.only(bottom: 20, left: 16, right: 16, top: 8),
             child: Row(
               children: [
+                DropdownButton<String>(
+                  value: _selectedGroup,
+                  items: _groups.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                  onChanged: (v) => setState(() => _selectedGroup = v ?? '기본'),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: controller,
