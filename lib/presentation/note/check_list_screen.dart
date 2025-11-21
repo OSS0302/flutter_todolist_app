@@ -45,17 +45,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
 
     if (!_groups.contains('기본')) _groups.insert(0, '기본');
 
-    // try to load saved expansion states from todo (if model supports a 'meta' map)
-    try {
-      final meta = widget.todo.meta ?? {};
-      final saved = meta['groupExpanded'];
-      if (saved is Map) {
-        saved.forEach((k, v) {
-          _groupExpanded[k] = v == true;
-        });
-      }
-    } catch (_) {}
-
+    // NOTE: Removed meta-reading block here to avoid accessing widget.todo.meta
     for (var g in _groups) {
       _groupExpanded.putIfAbsent(g, () => true);
     }
@@ -71,12 +61,9 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     super.dispose();
   }
 
+  // No-op persistence: avoid touching widget.todo.meta (which may not exist)
   void _persistGroupExpandedStates() {
-    try {
-      widget.todo.meta ??= {};
-      widget.todo.meta!['groupExpanded'] = Map<String, bool>.from(_groupExpanded);
-      widget.todo.save();
-    } catch (_) {}
+    // intentionally left empty to avoid errors when Todo model has no `meta` field
   }
 
   void _addGroup(String name) {
@@ -214,7 +201,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                           item['priority'] = priority;
                           item['group'] = group.isEmpty ? '기본' : group;
 
-                          // ensure group list includes this group
                           if (!_groups.contains(item['group'])) {
                             _groups.add(item['group']);
                             _groupExpanded.putIfAbsent(item['group'], () => true);
@@ -599,7 +585,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                           _persistGroupExpandedStates();
                         },
                         children: [
-                          // small header actions for group
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Row(
