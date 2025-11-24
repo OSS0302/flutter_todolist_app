@@ -16,6 +16,14 @@ class TodoCard extends StatefulWidget {
 class _TodoCardState extends State<TodoCard> {
   bool _isExpanded = false;
 
+  double get progress {
+    if (widget.todo.checklist == null || widget.todo.checklist!.isEmpty) {
+      return 0;
+    }
+    final checked = widget.todo.checklist!.where((c) => c['isChecked']).length;
+    return checked / widget.todo.checklist!.length;
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -23,42 +31,54 @@ class _TodoCardState extends State<TodoCard> {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(widget.todo.color).withOpacity(0.12),
+        color: Color(widget.todo.color ?? 0xFF4FACFE).withOpacity(0.15), // ✅ 오류 해결
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white24,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white30, width: 1),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// --- 메인 상단 줄 ---
           Row(
             children: [
               Checkbox(
                 value: widget.todo.isDone,
-                onChanged: (_) async {
-                  context.read<ListViewModel>().toggleDone(widget.todo);
-                },
+                onChanged: (_) => context.read<ListViewModel>().toggleDone(widget.todo),
               ),
 
-              // 제목
               Expanded(
                 child: Text(
                   widget.todo.title,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    decoration:
-                    widget.todo.isDone ? TextDecoration.lineThrough : null,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    decoration: widget.todo.isDone ? TextDecoration.lineThrough : null,
                   ),
                 ),
               ),
 
-              // 체크리스트 아이콘 → 편집 화면 이동 (2번 기능)
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 3,
+                      backgroundColor: Colors.white24,
+                    ),
+                    Center(
+                      child: Text(
+                        "${(progress * 100).toInt()}%",
+                        style: const TextStyle(fontSize: 9, color: Colors.white),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+
               IconButton(
+                icon: const Icon(Icons.checklist, color: Colors.white70),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -67,58 +87,75 @@ class _TodoCardState extends State<TodoCard> {
                     ),
                   );
                 },
-                icon: const Icon(Icons.checklist, color: Colors.white70),
               ),
 
-              // 펼치기 버튼
               IconButton(
-                onPressed: () => setState(() => _isExpanded = !_isExpanded),
                 icon: Icon(
-                  _isExpanded
-                      ? Icons.keyboard_arrow_up
-                      : Icons.keyboard_arrow_down,
-                  color: Colors.white60,
+                  _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: Colors.white70,
                 ),
+                onPressed: () => setState(() => _isExpanded = !_isExpanded),
               ),
             ],
           ),
 
-          /// --- 펼쳐졌을 때 체크리스트 표시 (1번 기능) ---
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
             child: !_isExpanded
                 ? const SizedBox.shrink()
                 : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 8),
-                ...widget.todo.checklist!.map((c) {
-                  return Row(
-                    children: [
-                      Icon(
-                        c['isChecked'] ? Icons.check_circle : Icons.circle,
-                        size: 18,
-                        color: Colors.white70,
+                ...(widget.todo.checklist ?? []).map((item) {
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => item['isChecked'] = !item['isChecked']);
+                      widget.todo.save();
+                      context.read<ListViewModel>().refresh();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Icon(
+                            item['isChecked']
+                                ? Icons.check_circle
+                                : Icons.circle_outlined,
+                            color: item['isChecked']
+                                ? Colors.lightBlueAccent
+                                : Colors.white54,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              item['title'],
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                decoration: item['isChecked']
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          c['title'],
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14),
-                        ),
-                      ),
-                    ],
+                    ),
                   );
                 }).toList(),
-                if (widget.todo.checklist!.isEmpty)
-                  const Text("체크리스트 없음",
-                      style:
-                      TextStyle(color: Colors.white38, fontSize: 12)),
-                const SizedBox(height: 8),
+
+                if (widget.todo.checklist == null || widget.todo.checklist!.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      "체크리스트 없음",
+                      style: TextStyle(color: Colors.white38, fontSize: 13),
+                    ),
+                  ),
               ],
             ),
-          ),
+          )
         ],
       ),
     );
