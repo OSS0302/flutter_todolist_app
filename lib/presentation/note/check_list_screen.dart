@@ -4,6 +4,7 @@ import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class ChecklistScreen extends StatefulWidget {
   final Todo todo;
@@ -60,7 +61,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: LinearProgressIndicator(
-              value: progress,
+              value: progress.toDouble(),
               minHeight: 8,
               borderRadius: BorderRadius.circular(10),
               backgroundColor: Colors.grey[300],
@@ -223,7 +224,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    due == null ? "마감일 없음" : "마감일: ${DateFormat('yyyy-MM-dd').format(due)}",
+                    due == null ? "마감일 없음" :  "마감일: ${DateFormat('yyyy-MM-dd').format(due!.toLocal())}",
                   ),
                 ),
                 TextButton(
@@ -261,7 +262,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
   }
 
-  // =================== 알림 설정 ===================
   Future<void> _toggleReminder(Map item) async {
     final notifications = FlutterLocalNotificationsPlugin();
 
@@ -291,17 +291,20 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     item['reminder'] = id;
 
+    if (scheduled == null) return;
+
+    final tzSched = tz.TZDateTime.from(scheduled, tz.local);
+
     await notifications.zonedSchedule(
       id,
       "할 일 알림",
       item['title'],
-      scheduled,
+      tzSched,
       const NotificationDetails(
         android: AndroidNotificationDetails("reminder", "Todo Reminder"),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
     );
 
     widget.todo.save();
