@@ -634,7 +634,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
         TextField(controller: memo, maxLines: 4, decoration: const InputDecoration(labelText: '메모')),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(child: Text(due == null ? '마감일 없음' : '마감일: ${DateFormat('yyyy-MM-dd').format(due.toLocal())}')),
+          Expanded(child: Text(due == null ? '마감일 없음' : '마감일: ${DateFormat('yyyy-MM-dd').format(due!)}')),
           TextButton(child: const Text('날짜 선택'), onPressed: () async {
             final picked = await showDatePicker(context: context, initialDate: due ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
             if (picked != null) setState(() => due = picked);
