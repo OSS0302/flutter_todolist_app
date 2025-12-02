@@ -5,6 +5,7 @@ import 'package:todolist/presentation/list_view_model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tzdata;
 
 class ChecklistScreen extends StatefulWidget {
   final Todo todo;
@@ -32,7 +33,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
   Map<String, GroupSettings> _groupSettings = {};
   Map<String, bool> _groupExpanded = {};
 
-  // predefined palettes/icons
   final List<Color> _palette = const [
     Colors.blue,
     Colors.red,
@@ -64,6 +64,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
   @override
   void initState() {
     super.initState();
+    tzdata.initializeTimeZones();
     _animationController =
         AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
 
@@ -74,11 +75,11 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       item['priority'] = item['priority'] ?? 1;
       item['isChecked'] = item['isChecked'] == true;
       item['pinned'] = item['pinned'] == true;
-
+      // ensure subtasks structure exists
+      item['subtasks'] = (item['subtasks'] is List) ? item['subtasks'] : <Map<String, dynamic>>[];
+      // group color/icon if present
       final g = item['group'] as String;
       if (!_groups.contains(g)) _groups.add(g);
-
-      // initialize per-group settings from first item found
       if (!_groupSettings.containsKey(g)) {
         final colorVal = item['groupColor'] as int?;
         final iconVal = item['groupIcon'] as int?;
@@ -100,7 +101,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     }
 
     _selectedGroup = _groups.isNotEmpty ? _groups.first : '기본';
-
     _initNotifications();
   }
 
@@ -119,17 +119,16 @@ class _ChecklistScreenState extends State<ChecklistScreen>
   }
 
   void _saveAndRefresh() {
-    // write group settings back to items so they persist even if model doesn't store separate groups
     final checklist = widget.todo.checklist ?? [];
     for (var item in checklist) {
-      final g = item['group'] as String? ?? '기본';
+      final g = (item['group'] as String?) ?? '기본';
       final gs = _groupSettings[g];
       if (gs != null) {
         item['groupColor'] = gs.color.value;
         item['groupIcon'] = gs.icon.codePoint;
       }
+      // ensure subtasks stored as simple maps (already do)
     }
-
     widget.todo.save();
     context.read<ListViewModel>().refresh();
   }
@@ -154,12 +153,10 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       _groups.remove(name);
       _groupSettings.remove(name);
       _groupExpanded.remove(name);
-
       widget.todo.checklist ??= [];
       for (var item in widget.todo.checklist!) {
         if ((item['group'] ?? '기본') == name) item['group'] = '기본';
       }
-
       if (!_groups.contains('기본')) _groups.insert(0, '기본');
       _selectedGroup = _groups.first;
     });
@@ -170,73 +167,53 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     final gs = _groupSettings[groupName]!;
     Color selectedColor = gs.color;
     IconData selectedIcon = gs.icon;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
         return Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 16, right: 16, top: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('그룹 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              const Text('색상 선택'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: _palette.map((c) {
-                  final sel = c.value == selectedColor.value;
-                  return GestureDetector(
-                    onTap: () => setState(() => selectedColor = c),
-                    child: Container(
-                      margin: const EdgeInsets.all(4),
-                      width: sel ? 44 : 36,
-                      height: sel ? 44 : 36,
-                      decoration: BoxDecoration(
-                        color: c,
-                        shape: BoxShape.circle,
-                        border: sel ? Border.all(color: Colors.black, width: 2) : null,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-              const Text('아이콘 선택'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: _icons.map((ic) {
-                  final sel = ic.codePoint == selectedIcon.codePoint;
-                  return GestureDetector(
-                    onTap: () => setState(() => selectedIcon = ic),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: sel ? Colors.black12 : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(ic, size: 28, color: sel ? Colors.black : Colors.grey[700]),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 14),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _groupSettings[groupName] = GroupSettings(color: selectedColor, icon: selectedIcon);
-                  });
-                  _saveAndRefresh();
-                  Navigator.pop(ctx);
-                },
-                child: const Text('저장'),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('그룹 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const Text('색상 선택'),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, children: _palette.map((c) {
+              final sel = c.value == selectedColor.value;
+              return GestureDetector(
+                onTap: () => setState(() => selectedColor = c),
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  width: sel ? 44 : 36,
+                  height: sel ? 44 : 36,
+                  decoration: BoxDecoration(color: c, shape: BoxShape.circle, border: sel ? Border.all(color: Colors.black, width: 2) : null),
+                ),
+              );
+            }).toList()),
+            const SizedBox(height: 12),
+            const Text('아이콘 선택'),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, children: _icons.map((ic) {
+              final sel = ic.codePoint == selectedIcon.codePoint;
+              return GestureDetector(
+                onTap: () => setState(() => selectedIcon = ic),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: sel ? Colors.black12 : Colors.transparent, borderRadius: BorderRadius.circular(8)),
+                  child: Icon(ic, size: 28, color: sel ? Colors.black : Colors.grey[700]),
+                ),
+              );
+            }).toList()),
+            const SizedBox(height: 14),
+            ElevatedButton(onPressed: () {
+              setState(() {
+                _groupSettings[groupName] = GroupSettings(color: selectedColor, icon: selectedIcon);
+              });
+              _saveAndRefresh();
+              Navigator.pop(ctx);
+            }, child: const Text('저장')),
+            const SizedBox(height: 12),
+          ]),
         );
       },
     );
@@ -253,7 +230,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     return map;
   }
 
-  void _toggleReminder(Map<String, dynamic> item) async {
+  Future<void> _toggleReminder(Map<String, dynamic> item) async {
     if (item['reminder'] != null) {
       final id = item['reminder'] as int;
       await _notifications.cancel(id);
@@ -262,36 +239,103 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       return;
     }
 
-    final date = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final date = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
     if (date == null) return;
     final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (time == null) return;
 
+    String repeat = 'none';
+    await showModalBottomSheet(context: context, builder: (ctx) {
+      String sel = 'none';
+      return StatefulBuilder(builder: (c, s) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(c).viewInsets.bottom, left: 16, right: 16, top: 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('반복 옵션 선택', style: TextStyle(fontWeight: FontWeight.bold)),
+            RadioListTile<String>(value: 'none', groupValue: sel, title: const Text('반복 없음'), onChanged: (v) => s(() => sel = v ?? 'none')),
+            RadioListTile<String>(value: 'daily', groupValue: sel, title: const Text('매일'), onChanged: (v) => s(() => sel = v ?? 'daily')),
+            RadioListTile<String>(value: 'weekly', groupValue: sel, title: const Text('매주'), onChanged: (v) => s(() => sel = v ?? 'weekly')),
+            const SizedBox(height: 8),
+            ElevatedButton(onPressed: () { repeat = sel; Navigator.pop(c); }, child: const Text('확인')),
+            const SizedBox(height: 8),
+          ]),
+        );
+      });
+    });
+
     final scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     item['reminder'] = id;
+    item['reminderRepeat'] = repeat;
 
-    final tzSched = tz.TZDateTime.from(scheduled, tz.local);
+    tz.TZDateTime tzSched = tz.TZDateTime.from(scheduled, tz.local);
+
+    // determine matchDateTimeComponents for daily/weekly
+    final matchComponents = (repeat == 'daily')
+        ? DateTimeComponents.time
+        : (repeat == 'weekly')
+        ? DateTimeComponents.dayOfWeekAndTime
+        : null;
 
     await _notifications.zonedSchedule(
       id,
       '할 일 알림',
       item['title'] ?? '할 일',
       tzSched,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails('reminder', 'Todo Reminder', importance: Importance.high, priority: Priority.high),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: matchComponents,
     );
 
     _saveAndRefresh();
     setState(() {});
+  }
+
+  // add subtask
+  void _addSubtask(Map<String, dynamic> item) {
+    final c = TextEditingController();
+    showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 16, right: 16, top: 16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: c, decoration: const InputDecoration(labelText: '서브태스크 제목')),
+          const SizedBox(height: 12),
+          ElevatedButton(onPressed: () {
+            final t = c.text.trim();
+            if (t.isEmpty) return;
+            setState(() {
+              item['subtasks'] ??= <Map<String, dynamic>>[];
+              (item['subtasks'] as List).add({'title': t, 'isChecked': false});
+            });
+            _saveAndRefresh();
+            Navigator.pop(ctx);
+          }, child: const Text('추가'))
+        ]),
+      );
+    });
+  }
+
+  String _formatDueText(int? dueMillis) {
+    if (dueMillis == null) return '마감일 없음';
+    final dueDt = DateTime.fromMillisecondsSinceEpoch(dueMillis).toLocal();
+    final today = DateTime.now();
+    final dueDate = DateTime(dueDt.year, dueDt.month, dueDt.day);
+    final nowDate = DateTime(today.year, today.month, today.day);
+    final diff = dueDate.difference(nowDate).inDays;
+    if (diff == 0) return 'D-DAY (${DateFormat('yyyy-MM-dd').format(dueDt)})';
+    if (diff > 0) return 'D-$diff (${DateFormat('yyyy-MM-dd').format(dueDt)})';
+    return 'D+${-diff} (${DateFormat('yyyy-MM-dd').format(dueDt)})';
+  }
+
+  // Drag-and-drop: called when item dropped on target group
+  void _moveItemToGroup(Map<String, dynamic> item, String destGroup) {
+    setState(() {
+      item['group'] = destGroup;
+    });
+    _saveAndRefresh();
   }
 
   @override
@@ -299,12 +343,12 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     final todo = widget.todo;
     final checklist = todo.checklist ?? [];
 
-    // ensure defaults
     for (var item in checklist) {
       item['group'] = item['group'] ?? '기본';
       item['priority'] = item['priority'] ?? 1;
       item['isChecked'] = item['isChecked'] == true;
       item['pinned'] = item['pinned'] == true;
+      item['subtasks'] = (item['subtasks'] is List) ? item['subtasks'] : <Map<String, dynamic>>[];
       final g = item['group'] as String;
       if (!_groups.contains(g)) {
         _groups.add(g);
@@ -313,10 +357,8 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       }
     }
 
-    // sort groups: pinned/priority/checked within each group's list
     final grouped = _groupedItems(checklist);
 
-    // compute totals
     final total = checklist.length;
     final done = checklist.where((e) => e['isChecked'] == true).length;
     final progress = total == 0 ? 0.0 : done / total;
@@ -328,21 +370,17 @@ class _ChecklistScreenState extends State<ChecklistScreen>
         final aPinned = a['pinned'] == true;
         final bPinned = b['pinned'] == true;
         if (aPinned != bPinned) return aPinned ? -1 : 1;
-
         final ap = (a['priority'] ?? 1) as int;
         final bp = (b['priority'] ?? 1) as int;
-        if (ap != bp) return bp - ap; // higher priority first
-
+        if (ap != bp) return bp - ap;
         final aDue = a['due'] as int?;
         final bDue = b['due'] as int?;
         if (aDue != null && bDue != null) return aDue.compareTo(bDue);
         if (aDue != null) return -1;
         if (bDue != null) return 1;
-
         final aChecked = a['isChecked'] == true;
         final bChecked = b['isChecked'] == true;
         if (aChecked != bChecked) return aChecked ? 1 : -1;
-
         return 0;
       });
       visibleItemsByGroup[g] = items;
@@ -373,32 +411,23 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                       title: const Text('그룹 관리'),
                       content: SizedBox(
                         width: double.maxFinite,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextField(controller: addCtrl, decoration: const InputDecoration(hintText: '새 그룹명')),
-                            const SizedBox(height: 8),
-                            ElevatedButton(onPressed: () { _addGroup(addCtrl.text); Navigator.of(ctx).pop(); }, child: const Text('추가')),
-                            const Divider(),
-                            Flexible(
-                              child: ListView.builder(
-                                shrinkWrap: true,
-                                itemCount: _groups.length,
-                                itemBuilder: (c, i) {
-                                  final g = _groups[i];
-                                  return ListTile(
-                                    leading: Icon(_groupSettings[g]?.icon ?? Icons.label, color: _groupSettings[g]?.color ?? Colors.blue),
-                                    title: Text(g),
-                                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      IconButton(icon: const Icon(Icons.edit), onPressed: () { Navigator.of(ctx).pop(); _editGroupSettings(g); }),
-                                      if (g != '기본') IconButton(icon: const Icon(Icons.delete_outline), onPressed: () { _deleteGroup(g); Navigator.of(ctx).pop(); }),
-                                    ]),
-                                  );
-                                },
-                              ),
-                            )
-                          ],
-                        ),
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          TextField(controller: addCtrl, decoration: const InputDecoration(hintText: '새 그룹명')),
+                          const SizedBox(height: 8),
+                          ElevatedButton(onPressed: () { _addGroup(addCtrl.text); Navigator.of(ctx).pop(); }, child: const Text('추가')),
+                          const Divider(),
+                          Flexible(child: ListView.builder(shrinkWrap: true, itemCount: _groups.length, itemBuilder: (c, i) {
+                            final g = _groups[i];
+                            return ListTile(
+                              leading: Icon(_groupSettings[g]?.icon, color: _groupSettings[g]?.color),
+                              title: Text(g),
+                              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                                IconButton(icon: const Icon(Icons.edit), onPressed: () { Navigator.of(ctx).pop(); _editGroupSettings(g); }),
+                                if (g != '기본') IconButton(icon: const Icon(Icons.delete_outline), onPressed: () { _deleteGroup(g); Navigator.of(ctx).pop(); }),
+                              ]),
+                            );
+                          })),
+                        ]),
                       ),
                     );
                   },
@@ -415,11 +444,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
         ],
       ),
       body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: LinearProgressIndicator(value: progress, minHeight: 8, backgroundColor: Colors.grey[300], color: Colors.blueAccent),
-        ),
-
+        Padding(padding: const EdgeInsets.all(16), child: LinearProgressIndicator(value: progress, minHeight: 8, backgroundColor: Colors.grey[300], color: Colors.blueAccent)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: TextField(
@@ -428,142 +453,178 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: '검색 (제목)', suffixIcon: searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { searchController.clear(); setState(() => searchQuery = ''); }) : null, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12)),
           ),
         ),
-
         const SizedBox(height: 8),
-
         Expanded(
           child: _groups.isEmpty ? const Center(child: Text('체크리스트가 비어있어요')) : ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: _groups.map((groupName) {
-              final gs = _groupSettings[groupName]!;
+              final gs = _groupSettings[groupName] ?? GroupSettings(color: Colors.blue, icon: Icons.label);
               final items = visibleItemsByGroup[groupName] ?? [];
-
-              // apply search filter locally
               final filteredItems = items.where((it) {
                 final title = (it['title'] ?? '') as String;
                 if (searchQuery.isNotEmpty && !title.toLowerCase().contains(searchQuery.toLowerCase())) return false;
                 return true;
               }).toList();
 
-              return Padding(
-                key: ValueKey('group_$groupName'),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: ExpansionTile(
-                    leading: CircleAvatar(backgroundColor: gs.color, child: Icon(gs.icon, color: Colors.white)),
-                    title: Row(children: [Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)), const SizedBox(width: 8), Chip(label: Text('${filteredItems.length}'))]),
-                    initiallyExpanded: _groupExpanded[groupName] ?? true,
-                    onExpansionChanged: (v) => setState(() => _groupExpanded[groupName] = v),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(children: [
-                          TextButton.icon(onPressed: () => _editGroupSettings(groupName), icon: const Icon(Icons.settings), label: const Text('그룹 설정')),
-                          const Spacer(),
-                          IconButton(icon: const Icon(Icons.add), onPressed: () { _showAddItemToGroup(groupName); }),
-                        ]),
-                      ),
-
-                      ReorderableListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: filteredItems.length,
-                        onReorder: (oldIndex, newIndex) {
-                          setState(() {
-                            if (newIndex > oldIndex) newIndex--;
-                            final itm = filteredItems.removeAt(oldIndex);
-                            filteredItems.insert(newIndex, itm);
-
-                            // reflect ordering into global checklist: remove all in this group then append in new order
-                            final all = widget.todo.checklist!;
-                            all.removeWhere((e) => (e['group'] ?? '기본') == groupName);
-                            all.addAll(filteredItems);
-                            // keep overall invariants by sorting by pinned/priority/checked
-                            all.sort((a, b) {
-                              final aPinned = a['pinned'] == true;
-                              final bPinned = b['pinned'] == true;
-                              if (aPinned != bPinned) return aPinned ? -1 : 1;
-                              final ap = (a['priority'] ?? 1) as int;
-                              final bp = (b['priority'] ?? 1) as int;
-                              if (ap != bp) return bp - ap;
-                              final aChecked = a['isChecked'] == true;
-                              final bChecked = b['isChecked'] == true;
-                              if (aChecked != bChecked) return aChecked ? 1 : -1;
-                              return 0;
-                            });
-                          });
-                          _saveAndRefresh();
-                        },
-                        itemBuilder: (context, idx) {
-                          final item = filteredItems[idx];
-                          final isChecked = item['isChecked'] == true;
-                          final pr = (item['priority'] ?? 1) as int;
-                          final due = item['due'] as int?;
-                          final reminder = item['reminder'] as int?;
-
-                          Color priorityColor = pr == 2 ? Colors.red : pr == 1 ? Colors.blue : Colors.grey;
-
-                          return Dismissible(
-                            key: ValueKey(item.hashCode ^ idx),
-                            background: Container(color: Colors.green, alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 20), child: const Icon(Icons.check, color: Colors.white)),
-                            secondaryBackground: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 16), child: const Icon(Icons.delete, color: Colors.white)),
-                            confirmDismiss: (direction) async {
-                              if (direction == DismissDirection.startToEnd) {
-                                setState(() { item['isChecked'] = !(item['isChecked'] == true); });
-                                _animationController.forward(from: 0);
-                                Future.delayed(const Duration(milliseconds: 200), () => _saveAndRefresh());
-                                return false;
-                              } else {
-                                _lastRemovedItem = Map<String, dynamic>.from(item);
-                                _lastRemovedIndex = widget.todo.checklist!.indexOf(item);
-                                _lastRemovedGroup = groupName;
-                                setState(() { widget.todo.checklist!.removeAt(_lastRemovedIndex!); });
-                                _saveAndRefresh();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('항목이 삭제되었습니다'),
-                                    action: SnackBarAction(label: '취소', onPressed: () {
-                                      if (_lastRemovedItem != null && _lastRemovedIndex != null) {
-                                        setState(() { widget.todo.checklist!.insert(_lastRemovedIndex!, _lastRemovedItem!); _lastRemovedItem = null; _lastRemovedIndex = null; _lastRemovedGroup = null; });
-                                        _saveAndRefresh();
-                                      }
-                                    }),
-                                    duration: const Duration(seconds: 4),
-                                  ),
-                                );
-                                return true;
-                              }
+              return DragTarget<Map<String, dynamic>>(
+                onWillAccept: (data) => data != null && (data['group'] as String?) != groupName,
+                onAccept: (data) {
+                  _moveItemToGroup(data, groupName);
+                },
+                builder: (context, candidate, rejected) {
+                  return Padding(
+                    key: ValueKey('group_$groupName'),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: ExpansionTile(
+                        leading: CircleAvatar(backgroundColor: gs.color, child: Icon(gs.icon, color: Colors.white)),
+                        title: Row(children: [Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)), const SizedBox(width: 8), Chip(label: Text('${filteredItems.length}'))]),
+                        initiallyExpanded: _groupExpanded[groupName] ?? true,
+                        onExpansionChanged: (v) => setState(() => _groupExpanded[groupName] = v),
+                        children: [
+                          Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Row(children: [
+                            TextButton.icon(onPressed: () => _editGroupSettings(groupName), icon: const Icon(Icons.settings), label: const Text('그룹 설정')),
+                            const Spacer(),
+                            IconButton(icon: const Icon(Icons.add), onPressed: () { _showAddItemToGroup(groupName); }),
+                          ])),
+                          ReorderableListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: filteredItems.length,
+                            onReorder: (oldIndex, newIndex) {
+                              setState(() {
+                                if (newIndex > oldIndex) newIndex--;
+                                final itm = filteredItems.removeAt(oldIndex);
+                                filteredItems.insert(newIndex, itm);
+                                final all = widget.todo.checklist!;
+                                all.removeWhere((e) => (e['group'] ?? '기본') == groupName);
+                                all.addAll(filteredItems);
+                                all.sort((a, b) {
+                                  final aPinned = a['pinned'] == true;
+                                  final bPinned = b['pinned'] == true;
+                                  if (aPinned != bPinned) return aPinned ? -1 : 1;
+                                  final ap = (a['priority'] ?? 1) as int;
+                                  final bp = (b['priority'] ?? 1) as int;
+                                  if (ap != bp) return bp - ap;
+                                  final aChecked = a['isChecked'] == true;
+                                  final bChecked = b['isChecked'] == true;
+                                  if (aChecked != bChecked) return aChecked ? 1 : -1;
+                                  return 0;
+                                });
+                              });
+                              _saveAndRefresh();
                             },
-                            child: ListTile(
-                              onLongPress: () => _editItem(item),
-                              leading: GestureDetector(
-                                onTap: () { setState(() { item['isChecked'] = !isChecked; }); _saveAndRefresh(); },
-                                child: ScaleTransition(
-                                  scale: Tween<double>(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut)),
-                                  child: CircleAvatar(backgroundColor: isChecked ? Colors.green : Colors.transparent, child: isChecked ? const Icon(Icons.check, color: Colors.white) : const Icon(Icons.circle_outlined, color: Colors.grey)),
+                            itemBuilder: (context, idx) {
+                              final item = filteredItems[idx];
+                              final isChecked = item['isChecked'] == true;
+                              final pr = (item['priority'] ?? 1) as int;
+                              final due = item['due'] as int?;
+                              final reminder = item['reminder'] as int?;
+                              final subtasks = (item['subtasks'] is List) ? (item['subtasks'] as List) : [];
+
+                              Color priorityColor = pr == 2 ? Colors.red : pr == 1 ? Colors.blue : Colors.grey;
+
+                              return LongPressDraggable<Map<String, dynamic>>(
+                                data: item,
+                                feedback: Material(
+                                  color: Colors.transparent,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 80),
+                                    child: Card(
+                                      elevation: 6,
+                                      child: Padding(padding: const EdgeInsets.all(8), child: Text(item['title'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis)),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              title: Text(item['title'] ?? '', style: TextStyle(decoration: isChecked ? TextDecoration.lineThrough : TextDecoration.none, color: isChecked ? Colors.grey : Colors.black)),
-                              subtitle: due != null ? Text('마감: ${DateFormat('yyyy-MM-dd').format(DateTime.fromMillisecondsSinceEpoch(due).toLocal())}', style: TextStyle(color: due != null && DateTime.fromMillisecondsSinceEpoch(due).isBefore(DateTime.now()) ? Colors.red : Colors.grey[700])) : null,
-                              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                IconButton(icon: Icon(Icons.flag, color: priorityColor), onPressed: () => _showPrioritySelector(item)),
-                                IconButton(icon: Icon(reminder != null ? Icons.notifications_active : Icons.notifications_none, color: reminder != null ? Colors.orange : Colors.grey), onPressed: () => _toggleReminder(item)),
-                                IconButton(icon: Icon(item['pinned'] == true ? Icons.push_pin : Icons.push_pin_outlined, color: item['pinned'] == true ? Colors.orange : Colors.grey), onPressed: () { setState(() { item['pinned'] = !(item['pinned'] == true); }); _saveAndRefresh(); }),
-                                const Icon(Icons.drag_handle)
-                              ]),
-                            ),
-                          );
-                        },
+                                child: Dismissible(
+                                  key: ValueKey(item.hashCode ^ idx),
+                                  background: Container(color: Colors.green, alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 20), child: const Icon(Icons.check, color: Colors.white)),
+                                  secondaryBackground: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 16), child: const Icon(Icons.delete, color: Colors.white)),
+                                  confirmDismiss: (direction) async {
+                                    if (direction == DismissDirection.startToEnd) {
+                                      setState(() { item['isChecked'] = !(item['isChecked'] == true); });
+                                      _animationController.forward(from: 0);
+                                      Future.delayed(const Duration(milliseconds: 200), () => _saveAndRefresh());
+                                      return false;
+                                    } else {
+                                      _lastRemovedItem = Map<String, dynamic>.from(item);
+                                      _lastRemovedIndex = widget.todo.checklist!.indexOf(item);
+                                      _lastRemovedGroup = groupName;
+                                      setState(() { widget.todo.checklist!.removeAt(_lastRemovedIndex!); });
+                                      _saveAndRefresh();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: const Text('항목이 삭제되었습니다'),
+                                          action: SnackBarAction(label: '취소', onPressed: () {
+                                            if (_lastRemovedItem != null && _lastRemovedIndex != null) {
+                                              setState(() { widget.todo.checklist!.insert(_lastRemovedIndex!, _lastRemovedItem!); _lastRemovedItem = null; _lastRemovedIndex = null; _lastRemovedGroup = null; });
+                                              _saveAndRefresh();
+                                            }
+                                          }),
+                                          duration: const Duration(seconds: 4),
+                                        ),
+                                      );
+                                      return true;
+                                    }
+                                  },
+                                  child: ListTile(
+                                    onLongPress: () => _editItem(item),
+                                    leading: GestureDetector(
+                                      onTap: () { setState(() { item['isChecked'] = !isChecked; }); _saveAndRefresh(); },
+                                      child: ScaleTransition(
+                                        scale: Tween<double>(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut)),
+                                        child: CircleAvatar(backgroundColor: isChecked ? Colors.green : Colors.transparent, child: isChecked ? const Icon(Icons.check, color: Colors.white) : const Icon(Icons.circle_outlined, color: Colors.grey)),
+                                      ),
+                                    ),
+                                    title: Text(item['title'] ?? '', style: TextStyle(decoration: isChecked ? TextDecoration.lineThrough : TextDecoration.none, color: isChecked ? Colors.grey : Colors.black)),
+                                    subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      if (due != null) Text(_formatDueText(due), style: TextStyle(color: DateTime.fromMillisecondsSinceEpoch(due).isBefore(DateTime.now()) ? Colors.red : Colors.grey[700])),
+                                      if (subtasks.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 6),
+                                          child: Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: subtasks.map<Widget>((st) {
+                                              final checked = st['isChecked'] == true;
+                                              return InkWell(
+                                                onTap: () { setState(() => st['isChecked'] = !(st['isChecked'] == true)); _saveAndRefresh(); },
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                  decoration: BoxDecoration(color: checked ? Colors.black12 : Colors.grey[100], borderRadius: BorderRadius.circular(8)),
+                                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                                    Icon(checked ? Icons.check_box : Icons.check_box_outline_blank, size: 16, color: checked ? Colors.green : Colors.grey),
+                                                    const SizedBox(width: 6),
+                                                    Text(st['title'] ?? '', style: TextStyle(decoration: checked ? TextDecoration.lineThrough : TextDecoration.none)),
+                                                  ]),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
+                                    ]),
+                                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                                      IconButton(icon: Icon(Icons.subdirectory_arrow_right, color: Colors.grey), onPressed: () => _addSubtask(item)),
+                                      IconButton(icon: Icon(Icons.flag, color: priorityColor), onPressed: () => _showPrioritySelector(item)),
+                                      IconButton(icon: Icon(reminder != null ? Icons.notifications_active : Icons.notifications_none, color: reminder != null ? Colors.orange : Colors.grey), onPressed: () => _toggleReminder(item)),
+                                      IconButton(icon: Icon(item['pinned'] == true ? Icons.push_pin : Icons.push_pin_outlined, color: item['pinned'] == true ? Colors.orange : Colors.grey), onPressed: () { setState(() { item['pinned'] = !(item['pinned'] == true); }); _saveAndRefresh(); }),
+                                      const Icon(Icons.drag_handle),
+                                    ]),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               );
             }).toList(),
           ),
         ),
-
         Padding(
           padding: const EdgeInsets.only(bottom: 20, left: 16, right: 16, top: 8),
           child: Row(children: [
@@ -588,7 +649,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
           final t = c.text.trim(); if (t.isEmpty) return;
           setState(() {
             widget.todo.checklist ??= [];
-            widget.todo.checklist!.add({'title': t, 'isChecked': false, 'memo': '', 'due': null, 'reminder': null, 'group': groupName, 'priority': 1, 'pinned': false});
+            widget.todo.checklist!.add({'title': t, 'isChecked': false, 'memo': '', 'due': null, 'reminder': null, 'reminderRepeat': 'none', 'group': groupName, 'priority': 1, 'pinned': false, 'subtasks': []});
           });
           _saveAndRefresh();
           Navigator.pop(ctx);
@@ -602,7 +663,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     if (text.isEmpty) return;
     setState(() {
       widget.todo.checklist ??= [];
-      widget.todo.checklist!.add({'title': text, 'isChecked': false, 'memo': '', 'due': null, 'reminder': null, 'group': _selectedGroup, 'priority': 1, 'pinned': false});
+      widget.todo.checklist!.add({'title': text, 'isChecked': false, 'memo': '', 'due': null, 'reminder': null, 'reminderRepeat': 'none', 'group': _selectedGroup, 'priority': 1, 'pinned': false, 'subtasks': []});
       if (!_groups.contains(_selectedGroup)) {
         _groups.add(_selectedGroup);
         _groupSettings.putIfAbsent(_selectedGroup, () => GroupSettings(color: _palette[_groups.length % _palette.length], icon: _icons[_groups.length % _icons.length]));
