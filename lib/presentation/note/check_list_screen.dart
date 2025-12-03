@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todolist/model/todo.dart';
@@ -60,6 +63,11 @@ class _ChecklistScreenState extends State<ChecklistScreen>
   ];
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  final ImagePicker _picker = ImagePicker();
+
+  Timer? _autoArchiveTimer;
+  // auto-archive threshold in hours
+  static const int _autoArchiveHours = 24;
 
   @override
   void initState() {
@@ -75,9 +83,14 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       item['priority'] = item['priority'] ?? 1;
       item['isChecked'] = item['isChecked'] == true;
       item['pinned'] = item['pinned'] == true;
-      // ensure subtasks structure exists
       item['subtasks'] = (item['subtasks'] is List) ? item['subtasks'] : <Map<String, dynamic>>[];
-      // group color/icon if present
+      // attach fields possibly missing
+      item['memo'] = item['memo'] ?? '';
+      item['due'] = item['due'];
+      item['reminder'] = item['reminder'];
+      item['reminderRepeat'] = item['reminderRepeat'] ?? 'none';
+      item['imagePath'] = item['imagePath'];
+      item['completedAt'] = item['completedAt'];
       final g = item['group'] as String;
       if (!_groups.contains(g)) _groups.add(g);
       if (!_groupSettings.containsKey(g)) {
@@ -102,6 +115,9 @@ class _ChecklistScreenState extends State<ChecklistScreen>
 
     _selectedGroup = _groups.isNotEmpty ? _groups.first : '기본';
     _initNotifications();
+    _startAutoArchiveTimer();
+    // ensure archive field
+    widget.todo.archive ??= <Map<String, dynamic>>[];
   }
 
   Future<void> _initNotifications() async {
@@ -110,8 +126,53 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     await _notifications.initialize(settings);
   }
 
+  void _startAutoArchiveTimer() {
+    // Run every 15 minutes to check for completed items that exceed threshold
+    _autoArchiveTimer?.cancel();
+    _autoArchiveTimer = Timer.periodic(const Duration(minutes: 15), (_) => _autoArchiveDueItems());
+    // also run once immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoArchiveDueItems());
+  }
+
+  void _stopAutoArchiveTimer() {
+    _autoArchiveTimer?.cancel();
+    _autoArchiveTimer = null;
+  }
+
+  void _autoArchiveDueItems() {
+    final list = widget.todo.checklist ?? [];
+    final now = DateTime.now();
+    final threshold = Duration(hours: _autoArchiveHours);
+    final toArchive = <Map<String, dynamic>>[];
+    for (var item in list.toList()) {
+      if (item['isChecked'] == true) {
+        final completedAtMillis = item['completedAt'] as int?;
+        if (completedAtMillis != null) {
+          final completedAt = DateTime.fromMillisecondsSinceEpoch(completedAtMillis);
+          if (now.difference(completedAt) >= threshold) {
+            toArchive.add(item);
+          }
+        } else {
+          // If no completedAt present, set it now and skip archiving until threshold passed
+          item['completedAt'] = now.millisecondsSinceEpoch;
+        }
+      }
+    }
+
+    if (toArchive.isNotEmpty) {
+      for (var it in toArchive) {
+        _moveToArchive(it);
+      }
+      _saveAndRefresh();
+    } else {
+      // save any completedAt updates
+      widget.todo.save();
+    }
+  }
+
   @override
   void dispose() {
+    _stopAutoArchiveTimer();
     _animationController.dispose();
     searchController.dispose();
     controller.dispose();
@@ -127,7 +188,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
         item['groupColor'] = gs.color.value;
         item['groupIcon'] = gs.icon.codePoint;
       }
-      // ensure subtasks stored as simple maps (already do)
     }
     widget.todo.save();
     context.read<ListViewModel>().refresh();
@@ -234,7 +294,10 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     if (item['reminder'] != null) {
       final id = item['reminder'] as int;
       await _notifications.cancel(id);
-      setState(() => item['reminder'] = null);
+      setState(() {
+        item['reminder'] = null;
+        item['reminderRepeat'] = 'none';
+      });
       _saveAndRefresh();
       return;
     }
@@ -270,7 +333,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
 
     tz.TZDateTime tzSched = tz.TZDateTime.from(scheduled, tz.local);
 
-    // determine matchDateTimeComponents for daily/weekly
     final matchComponents = (repeat == 'daily')
         ? DateTimeComponents.time
         : (repeat == 'weekly')
@@ -294,7 +356,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     setState(() {});
   }
 
-  // add subtask
   void _addSubtask(Map<String, dynamic> item) {
     final c = TextEditingController();
     showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) {
@@ -330,12 +391,64 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     return 'D+${-diff} (${DateFormat('yyyy-MM-dd').format(dueDt)})';
   }
 
-  // Drag-and-drop: called when item dropped on target group
   void _moveItemToGroup(Map<String, dynamic> item, String destGroup) {
     setState(() {
       item['group'] = destGroup;
     });
     _saveAndRefresh();
+  }
+
+  // image picking (camera or gallery)
+  Future<void> _pickImageForItem(Map<String, dynamic> item, ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, maxWidth: 1600, maxHeight: 1600, imageQuality: 85);
+      if (picked == null) return;
+      // store file path
+      setState(() {
+        item['imagePath'] = picked.path;
+      });
+      _saveAndRefresh();
+    } catch (e) {
+      // ignore or show error
+    }
+  }
+
+  // move item to archive list
+  void _moveToArchive(Map<String, dynamic> item) {
+    widget.todo.archive ??= <Map<String, dynamic>>[];
+    // remove from checklist
+    final list = widget.todo.checklist ?? [];
+    list.remove(item);
+    // clear certain transient fields
+    item['archivedAt'] = DateTime.now().millisecondsSinceEpoch;
+    item['isChecked'] = false; // archived items considered stored
+    // keep imagePath, memo, due, subtasks, group etc.
+    widget.todo.archive!.insert(0, item);
+  }
+
+  // restore from archive back to checklist (keeps imagePath and fields)
+  void _restoreFromArchive(int index) {
+    final archive = widget.todo.archive ?? [];
+    if (index < 0 || index >= archive.length) return;
+    final item = archive.removeAt(index);
+    widget.todo.checklist ??= [];
+    widget.todo.checklist!.insert(0, item);
+  }
+
+  // permanently delete from archive
+  void _deleteFromArchive(int index) {
+    final archive = widget.todo.archive ?? [];
+    if (index < 0 || index >= archive.length) return;
+    final item = archive.removeAt(index);
+    // optionally delete attached image file? we will not delete file from storage automatically.
+  }
+
+  // manual archive action (user can archive immediately)
+  void _archiveItemManually(Map<String, dynamic> item) {
+    setState(() {
+      _moveToArchive(item);
+      _saveAndRefresh();
+    });
   }
 
   @override
@@ -349,6 +462,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       item['isChecked'] = item['isChecked'] == true;
       item['pinned'] = item['pinned'] == true;
       item['subtasks'] = (item['subtasks'] is List) ? item['subtasks'] : <Map<String, dynamic>>[];
+      item['memo'] = item['memo'] ?? '';
       final g = item['group'] as String;
       if (!_groups.contains(g)) {
         _groups.add(g);
@@ -395,6 +509,19 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             onPressed: () => setState(() => hideCompleted = !hideCompleted),
             tooltip: hideCompleted ? '완료 숨김 중' : '완료 보기',
           ),
+          IconButton(
+            icon: const Icon(Icons.archive_outlined),
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ArchiveScreen(todo: widget.todo, onRestore: (idx) {
+                setState(() {});
+                _saveAndRefresh();
+              }, onDelete: (idx) {
+                setState(() {});
+                _saveAndRefresh();
+              })));
+            },
+            tooltip: '보관함',
+          ),
           PopupMenuButton<String>(
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'manageGroups', child: Text('그룹 관리')),
@@ -433,10 +560,18 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                   },
                 );
               } else if (v == 'checkAll') {
-                setState(() { for (var it in checklist) it['isChecked'] = true; });
+                setState(() { for (var it in checklist) {
+                  if (it['isChecked'] != true) {
+                    it['isChecked'] = true;
+                    it['completedAt'] = DateTime.now().millisecondsSinceEpoch;
+                  }
+                }});
                 _saveAndRefresh();
               } else if (v == 'uncheckAll') {
-                setState(() { for (var it in checklist) it['isChecked'] = false; });
+                setState(() { for (var it in checklist) {
+                  it['isChecked'] = false;
+                  it['completedAt'] = null;
+                }});
                 _saveAndRefresh();
               }
             },
@@ -521,6 +656,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                               final pr = (item['priority'] ?? 1) as int;
                               final due = item['due'] as int?;
                               final reminder = item['reminder'] as int?;
+                              final imagePath = item['imagePath'] as String?;
                               final subtasks = (item['subtasks'] is List) ? (item['subtasks'] as List) : [];
 
                               Color priorityColor = pr == 2 ? Colors.red : pr == 1 ? Colors.blue : Colors.grey;
@@ -543,7 +679,11 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                                   secondaryBackground: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 16), child: const Icon(Icons.delete, color: Colors.white)),
                                   confirmDismiss: (direction) async {
                                     if (direction == DismissDirection.startToEnd) {
-                                      setState(() { item['isChecked'] = !(item['isChecked'] == true); });
+                                      setState(() {
+                                        item['isChecked'] = !(item['isChecked'] == true);
+                                        if (item['isChecked'] == true) item['completedAt'] = DateTime.now().millisecondsSinceEpoch;
+                                        else item['completedAt'] = null;
+                                      });
                                       _animationController.forward(from: 0);
                                       Future.delayed(const Duration(milliseconds: 200), () => _saveAndRefresh());
                                       return false;
@@ -571,7 +711,15 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                                   child: ListTile(
                                     onLongPress: () => _editItem(item),
                                     leading: GestureDetector(
-                                      onTap: () { setState(() { item['isChecked'] = !isChecked; }); _saveAndRefresh(); },
+                                      onTap: () {
+                                        setState(() {
+                                          final prev = item['isChecked'] == true;
+                                          item['isChecked'] = !prev;
+                                          if (item['isChecked'] == true) item['completedAt'] = DateTime.now().millisecondsSinceEpoch;
+                                          else item['completedAt'] = null;
+                                        });
+                                        _saveAndRefresh();
+                                      },
                                       child: ScaleTransition(
                                         scale: Tween<double>(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut)),
                                         child: CircleAvatar(backgroundColor: isChecked ? Colors.green : Colors.transparent, child: isChecked ? const Icon(Icons.check, color: Colors.white) : const Icon(Icons.circle_outlined, color: Colors.grey)),
@@ -580,6 +728,23 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                                     title: Text(item['title'] ?? '', style: TextStyle(decoration: isChecked ? TextDecoration.lineThrough : TextDecoration.none, color: isChecked ? Colors.grey : Colors.black)),
                                     subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                       if (due != null) Text(_formatDueText(due), style: TextStyle(color: DateTime.fromMillisecondsSinceEpoch(due).isBefore(DateTime.now()) ? Colors.red : Colors.grey[700])),
+                                      if (imagePath != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 6),
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              if (imagePath != null) {
+                                                showDialog(context: context, builder: (_) {
+                                                  return Dialog(child: Image.file(File(imagePath)));
+                                                });
+                                              }
+                                            },
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(maxHeight: 120, maxWidth: 120),
+                                              child: Image.file(File(imagePath), fit: BoxFit.cover),
+                                            ),
+                                          ),
+                                        ),
                                       if (subtasks.isNotEmpty)
                                         Padding(
                                           padding: const EdgeInsets.only(top: 6),
@@ -605,11 +770,26 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                                         ),
                                     ]),
                                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      IconButton(icon: Icon(Icons.subdirectory_arrow_right, color: Colors.grey), onPressed: () => _addSubtask(item)),
+                                      IconButton(icon: Icon(Icons.camera_alt, color: Colors.grey), onPressed: () => _pickImageForItem(item, ImageSource.camera)),
+                                      IconButton(icon: Icon(Icons.photo, color: Colors.grey), onPressed: () => _pickImageForItem(item, ImageSource.gallery)),
                                       IconButton(icon: Icon(Icons.flag, color: priorityColor), onPressed: () => _showPrioritySelector(item)),
                                       IconButton(icon: Icon(reminder != null ? Icons.notifications_active : Icons.notifications_none, color: reminder != null ? Colors.orange : Colors.grey), onPressed: () => _toggleReminder(item)),
-                                      IconButton(icon: Icon(item['pinned'] == true ? Icons.push_pin : Icons.push_pin_outlined, color: item['pinned'] == true ? Colors.orange : Colors.grey), onPressed: () { setState(() { item['pinned'] = !(item['pinned'] == true); }); _saveAndRefresh(); }),
-                                      const Icon(Icons.drag_handle),
+                                      PopupMenuButton<String>(
+                                        onSelected: (val) {
+                                          if (val == 'archive') {
+                                            _archiveItemManually(item);
+                                          } else if (val == 'attach_camera') {
+                                            _pickImageForItem(item, ImageSource.camera);
+                                          } else if (val == 'attach_gallery') {
+                                            _pickImageForItem(item, ImageSource.gallery);
+                                          }
+                                        },
+                                        itemBuilder: (_) => [
+                                          const PopupMenuItem(value: 'archive', child: Text('보관')),
+                                          const PopupMenuItem(value: 'attach_camera', child: Text('카메라로 사진첨부')),
+                                          const PopupMenuItem(value: 'attach_gallery', child: Text('갤러리에서 첨부')),
+                                        ],
+                                      ),
                                     ]),
                                   ),
                                 ),
@@ -649,7 +829,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
           final t = c.text.trim(); if (t.isEmpty) return;
           setState(() {
             widget.todo.checklist ??= [];
-            widget.todo.checklist!.add({'title': t, 'isChecked': false, 'memo': '', 'due': null, 'reminder': null, 'reminderRepeat': 'none', 'group': groupName, 'priority': 1, 'pinned': false, 'subtasks': []});
+            widget.todo.checklist!.add({'title': t, 'isChecked': false, 'memo': '', 'due': null, 'reminder': null, 'reminderRepeat': 'none', 'group': groupName, 'priority': 1, 'pinned': false, 'subtasks': [], 'imagePath': null, 'completedAt': null});
           });
           _saveAndRefresh();
           Navigator.pop(ctx);
@@ -663,7 +843,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     if (text.isEmpty) return;
     setState(() {
       widget.todo.checklist ??= [];
-      widget.todo.checklist!.add({'title': text, 'isChecked': false, 'memo': '', 'due': null, 'reminder': null, 'reminderRepeat': 'none', 'group': _selectedGroup, 'priority': 1, 'pinned': false, 'subtasks': []});
+      widget.todo.checklist!.add({'title': text, 'isChecked': false, 'memo': '', 'due': null, 'reminder': null, 'reminderRepeat': 'none', 'group': _selectedGroup, 'priority': 1, 'pinned': false, 'subtasks': [], 'imagePath': null, 'completedAt': null});
       if (!_groups.contains(_selectedGroup)) {
         _groups.add(_selectedGroup);
         _groupSettings.putIfAbsent(_selectedGroup, () => GroupSettings(color: _palette[_groups.length % _palette.length], icon: _icons[_groups.length % _icons.length]));
@@ -702,10 +882,125 @@ class _ChecklistScreenState extends State<ChecklistScreen>
           }),
         ]),
         const SizedBox(height: 12),
+        Row(children: [
+          ElevatedButton.icon(onPressed: () => _pickImageForItem(item, ImageSource.camera), icon: const Icon(Icons.camera_alt), label: const Text('카메라')),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(onPressed: () => _pickImageForItem(item, ImageSource.gallery), icon: const Icon(Icons.photo), label: const Text('갤러리')),
+          const Spacer(),
+          TextButton(onPressed: () {
+            setState(() {
+              item['imagePath'] = null;
+            });
+            _saveAndRefresh();
+          }, child: const Text('이미지 제거')),
+        ]),
+        const SizedBox(height: 12),
         ElevatedButton(child: const Text('저장'), onPressed: () { setState(() { item['title'] = title.text.trim(); item['memo'] = memo.text.trim(); item['due'] = due?.millisecondsSinceEpoch; }); _saveAndRefresh(); Navigator.pop(context); }),
         const SizedBox(height: 12),
       ]));
     });
+  }
+}
+
+class ArchiveScreen extends StatefulWidget {
+  final Todo todo;
+  final void Function(int index)? onRestore;
+  final void Function(int index)? onDelete;
+  const ArchiveScreen({super.key, required this.todo, this.onRestore, this.onDelete});
+
+  @override
+  State<ArchiveScreen> createState() => _ArchiveScreenState();
+}
+
+class _ArchiveScreenState extends State<ArchiveScreen> {
+  @override
+  void initState() {
+    super.initState();
+    widget.todo.archive ??= <Map<String, dynamic>>[];
+  }
+
+  void _restore(int index) {
+    final archive = widget.todo.archive ?? [];
+    if (index < 0 || index >= archive.length) return;
+    final item = archive.removeAt(index);
+    widget.todo.checklist ??= [];
+    widget.todo.checklist!.insert(0, item);
+    widget.todo.save();
+    context.read<ListViewModel>().refresh();
+    widget.onRestore?.call(index);
+    setState(() {});
+  }
+
+  void _delete(int index) {
+    final archive = widget.todo.archive ?? [];
+    if (index < 0 || index >= archive.length) return;
+    final removed = archive.removeAt(index);
+    widget.todo.save();
+    context.read<ListViewModel>().refresh();
+    widget.onDelete?.call(index);
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final archive = widget.todo.archive ?? [];
+    return Scaffold(
+      appBar: AppBar(title: const Text('보관함')),
+      body: archive.isEmpty
+          ? const Center(child: Text('보관된 항목이 없습니다'))
+          : ListView.builder(
+        itemCount: archive.length,
+        itemBuilder: (c, i) {
+          final item = archive[i];
+          final title = item['title'] ?? '';
+          final memo = item['memo'] ?? '';
+          final imagePath = item['imagePath'] as String?;
+          final archivedAt = item['archivedAt'] != null ? DateTime.fromMillisecondsSinceEpoch(item['archivedAt']) : null;
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: ListTile(
+              onTap: () {
+                // show detail
+                showModalBottomSheet(context: context, builder: (_) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      if (memo.isNotEmpty) Text(memo),
+                      if (imagePath != null) ...[
+                        const SizedBox(height: 12),
+                        Image.file(File(imagePath)),
+                      ],
+                      const SizedBox(height: 12),
+                      Text(archivedAt != null ? '보관됨: ${DateFormat('yyyy-MM-dd HH:mm').format(archivedAt)}' : ''),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        ElevatedButton.icon(onPressed: () {
+                          Navigator.pop(context);
+                          _restore(i);
+                        }, icon: const Icon(Icons.unarchive), label: const Text('복원')),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () {
+                          Navigator.pop(context);
+                          _delete(i);
+                        }, icon: const Icon(Icons.delete), label: const Text('삭제')),
+                      ]),
+                    ]),
+                  );
+                });
+              },
+              title: Text(title),
+              subtitle: archivedAt != null ? Text('보관: ${DateFormat('yyyy-MM-dd').format(archivedAt)}') : null,
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(icon: const Icon(Icons.unarchive), onPressed: () => _restore(i)),
+                IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _delete(i)),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
