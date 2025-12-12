@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
@@ -245,7 +246,9 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                           color: sel ? Colors.black12 : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(ic, size: 28, color: sel ? Colors.black : Colors.grey[700]),
+                        child: Icon(ic,
+                            size: 28,
+                            color: sel ? Colors.black : Colors.grey[700]),
                       ),
                     );
                   }).toList(),
@@ -271,7 +274,8 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     );
   }
 
-  Map<String, List<Map<String, dynamic>>> _groupedItems(List<Map<String, dynamic>> input) {
+  Map<String, List<Map<String, dynamic>>> _groupedItems(
+      List<Map<String, dynamic>> input) {
     final map = <String, List<Map<String, dynamic>>>{};
     for (var g in _groups) map[g] = [];
     for (var item in input) {
@@ -328,44 +332,177 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     setState(() {});
   }
 
-  //---------------------- 템플릿 저장 (카테고리 포함) ------------------------
+  // ------------------ Template helpers --------------------
+
+  String _prefsKeyFor(String category, String name) => 'template/$category/$name';
+
+  Future<List<String>> _allTemplateKeys() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getKeys().where((k) => k.startsWith('template/')).toList();
+  }
+
   Future<void> _saveTemplate() async {
     final prefs = await SharedPreferences.getInstance();
     widget.todo.checklist ??= [];
     final list = widget.todo.checklist!;
     final nameController = TextEditingController();
     final categoryController = TextEditingController();
+    Color chosenColor = Colors.blue;
+    IconData chosenIcon = Icons.label;
 
+    // UI: name, category, color, icon. If key exists -> ask overwrite.
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx2, setStateInner) {
+          return AlertDialog(
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text("템플릿 저장"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: nameController, decoration: const InputDecoration(labelText: '템플릿 이름')),
+                  const SizedBox(height: 8),
+                  TextField(controller: categoryController, decoration: const InputDecoration(labelText: '카테고리 (비워두면 기본)')),
+                  const SizedBox(height: 12),
+                  Row(children: const [Text('카테고리 색'), SizedBox(width: 12)]),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: _palette.map((c) {
+                      final sel = c.value == chosenColor.value;
+                      return GestureDetector(
+                        onTap: () => setStateInner(() => chosenColor = c),
+                        child: Container(
+                          margin: const EdgeInsets.all(4),
+                          width: sel ? 44 : 36,
+                          height: sel ? 44 : 36,
+                          decoration: BoxDecoration(
+                            color: c,
+                            shape: BoxShape.circle,
+                            border: sel ? Border.all(color: Colors.black, width: 2) : null,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(children: const [Text('카테고리 아이콘'), SizedBox(width: 12)]),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: _icons.map((ic) {
+                      final sel = ic.codePoint == chosenIcon.codePoint;
+                      return GestureDetector(
+                        onTap: () => setStateInner(() => chosenIcon = ic),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: sel ? Colors.black12 : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(ic, size: 28, color: sel ? Colors.black : Colors.grey[700]),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+              ElevatedButton(
+                onPressed: () async {
+                  final name = nameController.text.trim();
+                  final catRaw = categoryController.text.trim();
+                  final cat = catRaw.isEmpty ? '기본' : catRaw;
+                  if (name.isEmpty) return;
+
+                  final key = _prefsKeyFor(cat, name);
+                  final exists = prefs.containsKey(key);
+
+                  // If exists, confirm overwrite
+                  if (exists) {
+                    final overwrite = await showDialog<bool>(
+                      context: context,
+                      builder: (oc) {
+                        return AlertDialog(
+                          title: const Text('덮어쓰기 확인'),
+                          content: Text("'$cat > $name' 템플릿이 이미 존재합니다. 덮어쓰시겠어요?"),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(oc, false), child: const Text('취소')),
+                            ElevatedButton(onPressed: () => Navigator.pop(oc, true), child: const Text('덮어쓰기')),
+                          ],
+                        );
+                      },
+                    );
+                    if (overwrite != true) return;
+                  }
+
+                  final payload = {
+                    'meta': {'categoryColor': chosenColor.value, 'categoryIcon': chosenIcon.codePoint},
+                    'items': list,
+                  };
+                  await prefs.setString(key, jsonEncode(payload));
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("'$cat > $name' 템플릿 저장됨")));
+                },
+                child: const Text('저장'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  Future<void> _exportTemplateAsJson(String fullKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(fullKey);
+    if (data == null) return;
+    await Clipboard.setData(ClipboardData(text: data));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('템플릿 JSON이 클립보드에 복사되었습니다')));
+  }
+
+  Future<void> _importTemplateFromJson() async {
+    final prefs = await SharedPreferences.getInstance();
+    final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Text("템플릿 저장"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: '템플릿 이름')),
-              const SizedBox(height: 8),
-              TextField(controller: categoryController, decoration: const InputDecoration(labelText: '카테고리 (비워두면 기본)')),
-            ],
+          title: const Text('템플릿 가져오기 (JSON 붙여넣기)'),
+          content: TextField(
+            controller: controller,
+            maxLines: 10,
+            decoration: const InputDecoration(hintText: 'JSON 문자열을 붙여넣으세요'),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
             ElevatedButton(
               onPressed: () async {
-                final name = nameController.text.trim();
-                final catRaw = categoryController.text.trim();
-                final cat = catRaw.isEmpty ? '기본' : catRaw;
-                if (name.isEmpty) return;
-
-                final key = 'template/$cat/$name';
-                await prefs.setString(key, jsonEncode(list));
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("'$cat > $name' 템플릿 저장됨")));
+                final text = controller.text.trim();
+                if (text.isEmpty) return;
+                try {
+                  final Map parsed = jsonDecode(text);
+                  final meta = parsed['meta'] as Map? ?? {};
+                  final items = parsed['items'] as List? ?? [];
+                  final category = (meta['category'] != null && meta['category'] is String)
+                      ? meta['category'] as String
+                      : (parsed['category'] as String? ?? '기본');
+                  final name = parsed['name'] as String? ?? 'imported_${DateTime.now().millisecondsSinceEpoch}';
+                  final key = _prefsKeyFor(category, name);
+                  final payload = {'meta': {'categoryColor': meta['categoryColor'] ?? Colors.blue.value, 'categoryIcon': meta['categoryIcon'] ?? Icons.label.codePoint}, 'items': items};
+                  await prefs.setString(key, jsonEncode(payload));
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('템플릿 가져오기 완료')));
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('유효한 JSON이 아닙니다')));
+                }
               },
-              child: const Text('저장'),
+              child: const Text('가져오기'),
             ),
           ],
         );
@@ -373,7 +510,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     );
   }
 
-  //---------------------- 템플릿 불러오기 (카테고리/덮어쓰기 선택) ------------------------
   Future<void> _loadTemplate() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys().where((k) => k.startsWith('template/')).toList();
@@ -383,7 +519,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       return;
     }
 
-    // 카테고리별로 분류
+    // categorize
     final Map<String, List<String>> categories = {};
     for (var k in keys) {
       final parts = k.split('/');
@@ -421,70 +557,162 @@ class _ChecklistScreenState extends State<ChecklistScreen>
               ),
               const Text('템플릿 불러오기', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Row(children: [
+                  ElevatedButton.icon(onPressed: _importTemplateFromJson, icon: const Icon(Icons.download), label: const Text('JSON 가져오기')),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(onPressed: () async {
+                    // copy list of keys to clipboard as a quick backup
+                    final data = keys.join('\n');
+                    await Clipboard.setData(ClipboardData(text: data));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('템플릿 키 목록이 클립보드에 복사되었습니다')));
+                  }, icon: const Icon(Icons.copy_all), label: const Text('키 복사')),
+                ]),
+              ),
+              const SizedBox(height: 12),
               Flexible(
                 child: ListView(
                   shrinkWrap: true,
                   children: categories.entries.map((entry) {
                     final cat = entry.key;
                     final list = entry.value;
+                    // get meta for avatar color/icon from first template if available
+                    Color avatarColor = Colors.blue;
+                    IconData avatarIcon = Icons.folder;
+                    if (list.isNotEmpty) {
+                      final sample = prefs.getString(list.first);
+                      if (sample != null) {
+                        try {
+                          final dec = jsonDecode(sample) as Map;
+                          final meta = dec['meta'] as Map? ?? {};
+                          if (meta['categoryColor'] != null) avatarColor = Color(meta['categoryColor']);
+                          if (meta['categoryIcon'] != null) avatarIcon = IconData(meta['categoryIcon'], fontFamily: 'MaterialIcons');
+                        } catch (_) {}
+                      }
+                    }
                     return Card(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: ExpansionTile(
-                        leading: CircleAvatar(child: Text(cat[0].toUpperCase())),
+                        leading: CircleAvatar(backgroundColor: avatarColor, child: Icon(avatarIcon, color: Colors.white)),
                         title: Text(cat, style: const TextStyle(fontWeight: FontWeight.bold)),
                         children: list.map((fullKey) {
                           final name = fullKey.split('/').last;
-                          return ListTile(
-                            title: Text(name),
-                            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: () async {
-                                  await prefs.remove(fullKey);
-                                  Navigator.pop(ctx);
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("'$cat > $name' 템플릿 삭제됨")));
-                                },
-                              ),
-                            ]),
-                            onTap: () async {
-                              final data = prefs.getString(fullKey);
-                              if (data == null) return;
-                              final templateList = jsonDecode(data) as List;
-
-                              // 적용 방식 선택
-                              final action = await showDialog<String>(
-                                context: context,
-                                builder: (applyCtx) {
-                                  return AlertDialog(
-                                    title: const Text('템플릿 적용 방식 선택'),
-                                    content: const Text('템플릿을 어떻게 적용할까요?'),
-                                    actions: [
-                                      TextButton(
-                                          onPressed: () => Navigator.pop(applyCtx, 'add'),
-                                          child: const Text('추가하기')),
-                                      ElevatedButton(
-                                          onPressed: () => Navigator.pop(applyCtx, 'overwrite'),
-                                          child: const Text('덮어쓰기')),
-                                    ],
+                          return FutureBuilder<String?>(
+                            future: Future(() async => prefs.getString(fullKey)),
+                            builder: (context, snap) {
+                              if (!snap.hasData) return ListTile(title: Text(name));
+                              final raw = snap.data!;
+                              Map meta = {};
+                              List items = [];
+                              try {
+                                final parsed = jsonDecode(raw) as Map;
+                                meta = parsed['meta'] ?? {};
+                                items = parsed['items'] ?? [];
+                              } catch (_) {}
+                              final catColor = meta['categoryColor'] != null ? Color(meta['categoryColor']) : Colors.blue;
+                              final catIcon = meta['categoryIcon'] != null ? IconData(meta['categoryIcon'], fontFamily: 'MaterialIcons') : Icons.label;
+                              return ListTile(
+                                title: Text(name),
+                                subtitle: Text('항목 ${items.length}개'),
+                                leading: CircleAvatar(backgroundColor: catColor, child: Icon(catIcon, color: Colors.white)),
+                                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  IconButton(icon: const Icon(Icons.visibility), tooltip: '미리보기', onPressed: () {
+                                    // preview modal
+                                    showModalBottomSheet(context: context, builder: (pvCtx) {
+                                      return Padding(
+                                        padding: EdgeInsets.only(bottom: MediaQuery.of(pvCtx).viewInsets.bottom, left: 12, right: 12, top: 12),
+                                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                                          ListTile(leading: CircleAvatar(backgroundColor: catColor, child: Icon(catIcon, color: Colors.white)), title: Text(name), subtitle: Text(cat)),
+                                          const Divider(),
+                                          Flexible(
+                                            child: ListView.builder(
+                                              shrinkWrap: true,
+                                              itemCount: items.length,
+                                              itemBuilder: (c, i) {
+                                                final it = Map<String,dynamic>.from(items[i]);
+                                                return ListTile(
+                                                  leading: it['isChecked'] == true ? const Icon(Icons.check_circle, color: Colors.green) : const Icon(Icons.radio_button_unchecked),
+                                                  title: Text(it['title'] ?? ''),
+                                                  subtitle: it['due'] != null ? Text('마감: ${DateFormat('yyyy-MM-dd').format(DateTime.fromMillisecondsSinceEpoch(it['due']).toLocal())}') : null,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(children: [
+                                            ElevatedButton.icon(onPressed: () => Navigator.pop(pvCtx), icon: const Icon(Icons.close), label: const Text('닫기')),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton.icon(onPressed: () { Navigator.pop(pvCtx); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('미리보기 닫음'))); }, icon: const Icon(Icons.playlist_add), label: const Text('적용 예시')),
+                                          ]),
+                                          const SizedBox(height: 12),
+                                        ]),
+                                      );
+                                    }, isScrollControlled: true);
+                                  }),
+                                  IconButton(icon: const Icon(Icons.download), tooltip: '내보내기(JSON 복사)', onPressed: () => _exportTemplateAsJson(fullKey)),
+                                  IconButton(icon: const Icon(Icons.delete_outline), tooltip: '삭제', onPressed: () async {
+                                    final confirm = await showDialog<bool>(context: context, builder: (dctx) {
+                                      return AlertDialog(
+                                        title: const Text('템플릿 삭제'),
+                                        content: Text("'$cat > $name' 템플릿을 삭제하시겠습니까?"),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(dctx, false), child: const Text('취소')),
+                                          ElevatedButton(onPressed: () => Navigator.pop(dctx, true), child: const Text('삭제')),
+                                        ],
+                                      );
+                                    });
+                                    if (confirm == true) {
+                                      await prefs.remove(fullKey);
+                                      Navigator.pop(context); // close bottom sheet to refresh view
+                                      await Future.delayed(const Duration(milliseconds: 300));
+                                      _loadTemplate(); // reopen to refresh
+                                    }
+                                  }),
+                                ]),
+                                onTap: () async {
+                                  // apply: add / overwrite / merge
+                                  final action = await showDialog<String>(
+                                    context: context,
+                                    builder: (applyCtx) {
+                                      return AlertDialog(
+                                        title: const Text('템플릿 적용 방식 선택'),
+                                        content: const Text('템플릿을 어떻게 적용할까요?'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(applyCtx, 'add'), child: const Text('추가하기')),
+                                          TextButton(onPressed: () => Navigator.pop(applyCtx, 'merge'), child: const Text('병합(중복제거)')),
+                                          ElevatedButton(onPressed: () => Navigator.pop(applyCtx, 'overwrite'), child: const Text('덮어쓰기')),
+                                        ],
+                                      );
+                                    },
                                   );
+                                  if (action == null) return;
+
+                                  setState(() {
+                                    widget.todo.checklist ??= [];
+                                    if (action == 'overwrite') {
+                                      widget.todo.checklist!.clear();
+                                      for (var it in items) widget.todo.checklist!.add(Map<String, dynamic>.from(it));
+                                    } else if (action == 'add') {
+                                      for (var it in items) widget.todo.checklist!.add(Map<String, dynamic>.from(it));
+                                    } else if (action == 'merge') {
+                                      // merge by title: keep existing, append new non-duplicates
+                                      final existingTitles = widget.todo.checklist!.map((e) => (e['title'] ?? '').toString()).toSet();
+                                      for (var it in items) {
+                                        final title = (it['title'] ?? '').toString();
+                                        if (!existingTitles.contains(title)) {
+                                          widget.todo.checklist!.add(Map<String, dynamic>.from(it));
+                                          existingTitles.add(title);
+                                        }
+                                      }
+                                    }
+                                  });
+
+                                  _saveAndRefresh();
+                                  Navigator.pop(context); // close bottom sheet
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("'$cat > $name' 템플릿 적용됨")));
                                 },
                               );
-
-                              if (action == null) return;
-
-                              setState(() {
-                                widget.todo.checklist ??= [];
-                                if (action == 'overwrite') {
-                                  widget.todo.checklist!.clear();
-                                }
-                                for (var it in templateList) {
-                                  widget.todo.checklist!.add(Map<String, dynamic>.from(it));
-                                }
-                              });
-
-                              _saveAndRefresh();
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("'$cat > $name' 템플릿 적용됨")));
                             },
                           );
                         }).toList(),
@@ -501,7 +729,7 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     );
   }
 
-  //-----------------------------------------------------------------
+  // ------------------ End Template helpers --------------------
 
   @override
   Widget build(BuildContext context) {
@@ -564,13 +792,13 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             onPressed: () => setState(() => hideCompleted = !hideCompleted),
             tooltip: hideCompleted ? '완료 숨김 중' : '완료 보기',
           ),
+          IconButton(icon: const Icon(Icons.save_alt), tooltip: '템플릿 저장', onPressed: _saveTemplate),
+          IconButton(icon: const Icon(Icons.folder_open), tooltip: '템플릿 관리', onPressed: _loadTemplate),
           PopupMenuButton<String>(
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'manageGroups', child: Text('그룹 관리')),
               const PopupMenuItem(value: 'checkAll', child: Text('전체 완료')),
               const PopupMenuItem(value: 'uncheckAll', child: Text('전체 해제')),
-              const PopupMenuItem(value: 'saveTemplate', child: Text('템플릿 저장')),
-              const PopupMenuItem(value: 'loadTemplate', child: Text('템플릿 불러오기')),
             ],
             onSelected: (v) {
               if (v == 'manageGroups') {
@@ -618,10 +846,6 @@ class _ChecklistScreenState extends State<ChecklistScreen>
               } else if (v == 'uncheckAll') {
                 setState(() { for (var it in checklist) it['isChecked'] = false; });
                 _saveAndRefresh();
-              } else if (v == 'saveTemplate') {
-                _saveTemplate();
-              } else if (v == 'loadTemplate') {
-                _loadTemplate();
               }
             },
           ),
