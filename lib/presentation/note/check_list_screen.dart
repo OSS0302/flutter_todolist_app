@@ -1,20 +1,11 @@
-// UPDATED checklist_screen.dart
-// Added:
-// 1) Template search & favorite
-// 2) Persistent category color/icon settings (separate from templates)
-
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:intl/intl.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:shared_preferences/shared_preferences.dart';
 
-// ================= CATEGORY SETTINGS MODEL =================
 class TemplateCategorySetting {
   final Color color;
   final IconData icon;
@@ -43,24 +34,10 @@ class ChecklistScreen extends StatefulWidget {
   State<ChecklistScreen> createState() => _ChecklistScreenState();
 }
 
-class _ChecklistScreenState extends State<ChecklistScreen>
-    with SingleTickerProviderStateMixin {
-  final controller = TextEditingController();
-  final searchController = TextEditingController();
-
-  bool hideCompleted = false;
-  String searchQuery = '';
-
-  late AnimationController _animationController;
-
-  final FlutterLocalNotificationsPlugin _notifications =
-  FlutterLocalNotificationsPlugin();
-
-  // ===== TEMPLATE SEARCH / FAVORITE =====
+class _ChecklistScreenState extends State<ChecklistScreen> {
+  // ===== TEMPLATE STATE =====
   String templateSearch = '';
-  Set<String> favoriteTemplates = {};
-
-  // ===== CATEGORY SETTINGS =====
+  Set<String> favorites = {};
   Map<String, TemplateCategorySetting> categorySettings = {};
 
   final List<Color> palette = const [
@@ -70,122 +47,53 @@ class _ChecklistScreenState extends State<ChecklistScreen>
     Colors.orange,
     Colors.purple,
     Colors.teal,
-    Colors.brown,
-    Colors.pink,
     Colors.indigo,
-    Colors.grey,
+    Colors.brown,
   ];
 
   final List<IconData> icons = const [
     Icons.folder,
     Icons.work,
     Icons.home,
-    Icons.shopping_cart,
-    Icons.school,
-    Icons.favorite,
     Icons.star,
+    Icons.favorite,
     Icons.flag,
+    Icons.school,
   ];
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 250));
-    _loadCategorySettings();
-    _loadFavorites();
+    _loadSettings();
   }
 
-  // ================= PERSISTENCE =================
-  Future<void> _loadCategorySettings() async {
+  // ================= LOAD / SAVE =================
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('template_category_settings');
-    if (raw == null) return;
 
-    final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    setState(() {
+    favorites = prefs.getStringList('template_favorites')?.toSet() ?? {};
+
+    final raw = prefs.getString('template_category_settings');
+    if (raw != null) {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
       categorySettings = decoded.map((k, v) =>
           MapEntry(k, TemplateCategorySetting.fromJson(v)));
-    });
+    }
+    setState(() {});
   }
 
-  Future<void> _saveCategorySettings() async {
+  Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    final encoded = categorySettings.map((k, v) => MapEntry(k, v.toJson()));
-    await prefs.setString('template_category_settings', jsonEncode(encoded));
+    await prefs.setStringList('template_favorites', favorites.toList());
+
+    final encoded =
+    categorySettings.map((k, v) => MapEntry(k, v.toJson()));
+    await prefs.setString(
+        'template_category_settings', jsonEncode(encoded));
   }
 
-  Future<void> _loadFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      favoriteTemplates = prefs.getStringList('template_favorites')?.toSet() ?? {};
-    });
-  }
-
-  Future<void> _saveFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('template_favorites', favoriteTemplates.toList());
-  }
-
-  // ================= CATEGORY EDIT UI =================
-  void _editCategory(String category) {
-    final current = categorySettings[category] ??
-        TemplateCategorySetting(color: Colors.blue, icon: Icons.folder);
-
-    Color selColor = current.color;
-    IconData selIcon = current.icon;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setInner) {
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('카테고리 설정: $category',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: palette
-                    .map((c) => GestureDetector(
-                  onTap: () => setInner(() => selColor = c),
-                  child: CircleAvatar(backgroundColor: c),
-                ))
-                    .toList(),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: icons
-                    .map((i) => IconButton(
-                  icon: Icon(i,
-                      color: i == selIcon ? selColor : Colors.grey),
-                  onPressed: () => setInner(() => selIcon = i),
-                ))
-                    .toList(),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    categorySettings[category] =
-                        TemplateCategorySetting(color: selColor, icon: selIcon);
-                  });
-                  _saveCategorySettings();
-                  Navigator.pop(ctx);
-                },
-                child: const Text('저장'),
-              )
-            ]),
-          );
-        });
-      },
-    );
-  }
-
-  // ================= TEMPLATE LOADER UI =================
-  Future<void> _loadTemplate() async {
+  // ================= TEMPLATE UI =================
+  Future<void> _openTemplateManager() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys().where((k) => k.startsWith('template/')).toList();
     if (keys.isEmpty) return;
@@ -200,27 +108,44 @@ class _ChecklistScreenState extends State<ChecklistScreen>
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Column(children: [
+            // SEARCH
             TextField(
               decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search), hintText: '템플릿 검색'),
               onChanged: (v) => setState(() => templateSearch = v.toLowerCase()),
             ),
             const SizedBox(height: 12),
+
+            // FAVORITES
+            if (favorites.isNotEmpty) ...[
+              const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('⭐ 즐겨찾기',
+                      style:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+              const SizedBox(height: 6),
+              ...favorites.map((k) => _templateTile(k, prefs)).toList(),
+              const Divider(),
+            ],
+
+            // CATEGORIES
             Expanded(
               child: ListView(
                 children: categories.entries.map((entry) {
                   final cat = entry.key;
                   final setting = categorySettings[cat] ??
-                      TemplateCategorySetting(color: Colors.grey, icon: Icons.folder);
+                      TemplateCategorySetting(
+                          color: Colors.grey, icon: Icons.folder);
 
                   final filtered = entry.value.where((k) {
                     final name = k.split('/').last.toLowerCase();
-                    return name.contains(templateSearch);
+                    return name.contains(templateSearch) &&
+                        !favorites.contains(k);
                   }).toList();
 
                   if (filtered.isEmpty) return const SizedBox();
@@ -236,36 +161,8 @@ class _ChecklistScreenState extends State<ChecklistScreen>
                         icon: const Icon(Icons.settings),
                         onPressed: () => _editCategory(cat),
                       ),
-                      children: filtered.map((k) {
-                        final name = k.split('/').last;
-                        final fav = favoriteTemplates.contains(k);
-                        return ListTile(
-                          title: Text(name),
-                          leading: IconButton(
-                            icon: Icon(fav ? Icons.star : Icons.star_border),
-                            onPressed: () {
-                              setState(() {
-                                fav
-                                    ? favoriteTemplates.remove(k)
-                                    : favoriteTemplates.add(k);
-                              });
-                              _saveFavorites();
-                            },
-                          ),
-                          onTap: () async {
-                            final data = prefs.getString(k);
-                            if (data == null) return;
-                            final list = jsonDecode(data) as List;
-                            setState(() {
-                              widget.todo.checklist =
-                                  list.map((e) => Map<String, dynamic>.from(e)).toList();
-                            });
-                            widget.todo.save();
-                            context.read<ListViewModel>().refresh();
-                            Navigator.pop(ctx);
-                          },
-                        );
-                      }).toList(),
+                      children:
+                      filtered.map((k) => _templateTile(k, prefs)).toList(),
                     ),
                   );
                 }).toList(),
@@ -273,6 +170,163 @@ class _ChecklistScreenState extends State<ChecklistScreen>
             ),
           ]),
         );
+      },
+    );
+  }
+
+  Widget _templateTile(String key, SharedPreferences prefs) {
+    final name = key.split('/').last;
+    final fav = favorites.contains(key);
+
+    return ListTile(
+      title: Text(name),
+      leading: IconButton(
+        icon: Icon(fav ? Icons.star : Icons.star_border),
+        onPressed: () {
+          setState(() {
+            fav ? favorites.remove(key) : favorites.add(key);
+          });
+          _saveSettings();
+        },
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () async {
+        final data = prefs.getString(key);
+        if (data == null) return;
+        final list = jsonDecode(data) as List;
+        _previewTemplate(name, list);
+      },
+    );
+  }
+
+  // ================= PREVIEW + APPLY =================
+  void _previewTemplate(String name, List list) {
+    final items = list.cast<Map<String, dynamic>>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(name,
+                style:
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('항목 ${items.length}개'),
+            const SizedBox(height: 8),
+            ...items.take(3).map((e) => ListTile(
+              title: Text(e['title'] ?? ''),
+              leading: const Icon(Icons.check_box_outline_blank),
+            )),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                  child: OutlinedButton(
+                      onPressed: () {
+                        _applyTemplate(items, 'add');
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('추가'))),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: OutlinedButton(
+                      onPressed: () {
+                        _applyTemplate(items, 'merge');
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('스마트 병합'))),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: ElevatedButton(
+                      onPressed: () {
+                        _applyTemplate(items, 'overwrite');
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('덮어쓰기'))),
+            ])
+          ]),
+        );
+      },
+    );
+  }
+
+  void _applyTemplate(List<Map<String, dynamic>> items, String mode) {
+    setState(() {
+      widget.todo.checklist ??= [];
+
+      if (mode == 'overwrite') {
+        widget.todo.checklist!.clear();
+      }
+
+      if (mode == 'merge') {
+        for (var it in items) {
+          final exists = widget.todo.checklist!.any((e) =>
+          e['title'] == it['title'] && e['group'] == it['group']);
+          if (!exists) widget.todo.checklist!.add(Map.from(it));
+        }
+      } else {
+        for (var it in items) {
+          widget.todo.checklist!.add(Map.from(it));
+        }
+      }
+    });
+
+    widget.todo.save();
+    context.read<ListViewModel>().refresh();
+  }
+
+  // ================= CATEGORY EDIT =================
+  void _editCategory(String cat) {
+    Color color = categorySettings[cat]?.color ?? Colors.blue;
+    IconData icon = categorySettings[cat]?.icon ?? Icons.folder;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setInner) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('카테고리 설정: $cat',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: palette
+                    .map((c) => GestureDetector(
+                  onTap: () => setInner(() => color = c),
+                  child: CircleAvatar(backgroundColor: c),
+                ))
+                    .toList(),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: icons
+                    .map((i) => IconButton(
+                  icon: Icon(i,
+                      color: i == icon ? color : Colors.grey),
+                  onPressed: () => setInner(() => icon = i),
+                ))
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      categorySettings[cat] =
+                          TemplateCategorySetting(color: color, icon: icon);
+                    });
+                    _saveSettings();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('저장'))
+            ]),
+          );
+        });
       },
     );
   }
@@ -285,11 +339,12 @@ class _ChecklistScreenState extends State<ChecklistScreen>
         title: const Text('체크리스트'),
         actions: [
           IconButton(
-              icon: const Icon(Icons.folder_open), onPressed: _loadTemplate),
+              icon: const Icon(Icons.folder_open),
+              onPressed: _openTemplateManager),
         ],
       ),
       body: const Center(
-        child: Text('기존 체크리스트 UI 유지'),
+        child: Text('👉 기존 체크리스트 UI 그대로 유지'),
       ),
     );
   }
