@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
-
 class TemplateCategorySetting {
   final Color color;
   final IconData icon;
@@ -24,8 +23,6 @@ class TemplateCategorySetting {
     );
   }
 }
-
-// ================= MAIN SCREEN =================
 class ChecklistScreen extends StatefulWidget {
   final Todo todo;
   const ChecklistScreen({super.key, required this.todo});
@@ -35,7 +32,6 @@ class ChecklistScreen extends StatefulWidget {
 }
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
-  // ===== TEMPLATE STATE =====
   String templateSearch = '';
   Set<String> favorites = {};
   Map<String, TemplateCategorySetting> categorySettings = {};
@@ -66,8 +62,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     super.initState();
     _loadSettings();
   }
-
-  // ================= LOAD / SAVE =================
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -91,8 +85,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     await prefs.setString(
         'template_category_settings', jsonEncode(encoded));
   }
-
-  // ================= TEMPLATE UI =================
   Future<void> _openTemplateManager() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys().where((k) => k.startsWith('template/')).toList();
@@ -113,15 +105,12 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(children: [
-            // SEARCH
             TextField(
               decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search), hintText: '템플릿 검색'),
               onChanged: (v) => setState(() => templateSearch = v.toLowerCase()),
             ),
             const SizedBox(height: 12),
-
-            // FAVORITES
             if (favorites.isNotEmpty) ...[
               const Align(
                   alignment: Alignment.centerLeft,
@@ -132,8 +121,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               ...favorites.map((k) => _templateTile(k, prefs)).toList(),
               const Divider(),
             ],
-
-            // CATEGORIES
             Expanded(
               child: ListView(
                 children: categories.entries.map((entry) {
@@ -198,8 +185,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       },
     );
   }
-
-  // ================= PREVIEW + APPLY =================
   void _previewTemplate(String name, List list) {
     final items = list.cast<Map<String, dynamic>>();
 
@@ -276,8 +261,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     widget.todo.save();
     context.read<ListViewModel>().refresh();
   }
-
-  // ================= CATEGORY EDIT =================
   void _editCategory(String cat) {
     Color color = categorySettings[cat]?.color ?? Colors.blue;
     IconData icon = categorySettings[cat]?.icon ?? Icons.folder;
@@ -330,8 +313,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       },
     );
   }
-
-  // ================= BUILD =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
