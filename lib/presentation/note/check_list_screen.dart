@@ -1,28 +1,11 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
-class TemplateCategorySetting {
-  final Color color;
-  final IconData icon;
 
-  TemplateCategorySetting({required this.color, required this.icon});
-
-  Map<String, dynamic> toJson() => {
-    'color': color.value,
-    'icon': icon.codePoint,
-  };
-
-  factory TemplateCategorySetting.fromJson(Map<String, dynamic> json) {
-    return TemplateCategorySetting(
-      color: Color(json['color']),
-      icon: IconData(json['icon'], fontFamily: 'MaterialIcons'),
-    );
-  }
-}
 class ChecklistScreen extends StatefulWidget {
   final Todo todo;
   const ChecklistScreen({super.key, required this.todo});
@@ -32,301 +15,314 @@ class ChecklistScreen extends StatefulWidget {
 }
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
-  String templateSearch = '';
-  Set<String> favorites = {};
-  Map<String, TemplateCategorySetting> categorySettings = {};
+  final TextEditingController controller = TextEditingController();
+  bool hideCompleted = false;
 
-  final List<Color> palette = const [
-    Colors.blue,
-    Colors.red,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
-    Colors.teal,
-    Colors.indigo,
-    Colors.brown,
-  ];
-
-  final List<IconData> icons = const [
-    Icons.folder,
-    Icons.work,
-    Icons.home,
-    Icons.star,
-    Icons.favorite,
-    Icons.flag,
-    Icons.school,
-  ];
+  List<String> _groups = ['기본'];
+  String _selectedGroup = '기본';
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    widget.todo.checklist ??= [];
   }
-  Future<void> _loadSettings() async {
+
+  void _saveAndRefresh() {
+    widget.todo.save();
+    try {
+      context.read<ListViewModel>().refresh();
+    } catch (_) {}
+  }
+
+  // ======================================================
+  // ✅ 템플릿 저장 (카테고리 + 중복 시 덮어쓰기 확인)
+  // ======================================================
+  Future<void> _saveTemplate() async {
     final prefs = await SharedPreferences.getInstance();
+    final nameC = TextEditingController();
+    final categoryC = TextEditingController();
 
-    favorites = prefs.getStringList('template_favorites')?.toSet() ?? {};
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text('템플릿 저장'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameC,
+                decoration: const InputDecoration(labelText: '템플릿 이름'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: categoryC,
+                decoration:
+                const InputDecoration(labelText: '카테고리 (기본값: 기본)'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('취소')),
+            ElevatedButton(
+              child: const Text('저장'),
+              onPressed: () async {
+                final name = nameC.text.trim();
+                final cat =
+                categoryC.text.trim().isEmpty ? '기본' : categoryC.text.trim();
 
-    final raw = prefs.getString('template_category_settings');
-    if (raw != null) {
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
-      categorySettings = decoded.map((k, v) =>
-          MapEntry(k, TemplateCategorySetting.fromJson(v)));
+                if (name.isEmpty) return;
+
+                final key = 'template/$cat/$name';
+
+                if (prefs.containsKey(key)) {
+                  final overwrite = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('덮어쓰기 확인'),
+                      content:
+                      Text("'$cat > $name' 템플릿이 이미 존재합니다."),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('취소')),
+                        ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('덮어쓰기')),
+                      ],
+                    ),
+                  );
+                  if (overwrite != true) return;
+                }
+
+                await prefs.setString(
+                  key,
+                  jsonEncode(widget.todo.checklist),
+                );
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("'$cat > $name' 저장됨")),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ======================================================
+  // ✅ 템플릿 불러오기 (카테고리 + 미리보기 + 적용 방식)
+  // ======================================================
+  Future<void> _loadTemplate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys =
+    prefs.getKeys().where((k) => k.startsWith('template/')).toList();
+
+    if (keys.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('저장된 템플릿이 없습니다')),
+      );
+      return;
     }
-    setState(() {});
-  }
-
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('template_favorites', favorites.toList());
-
-    final encoded =
-    categorySettings.map((k, v) => MapEntry(k, v.toJson()));
-    await prefs.setString(
-        'template_category_settings', jsonEncode(encoded));
-  }
-  Future<void> _openTemplateManager() async {
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys().where((k) => k.startsWith('template/')).toList();
-    if (keys.isEmpty) return;
 
     final Map<String, List<String>> categories = {};
     for (var k in keys) {
       final parts = k.split('/');
-      categories.putIfAbsent(parts[1], () => []).add(k);
+      categories.putIfAbsent(parts[1], () => []);
+      categories[parts[1]]!.add(k);
     }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) {
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
         return Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(children: [
-            TextField(
-              decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search), hintText: '템플릿 검색'),
-              onChanged: (v) => setState(() => templateSearch = v.toLowerCase()),
-            ),
-            const SizedBox(height: 12),
-            if (favorites.isNotEmpty) ...[
-              const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('⭐ 즐겨찾기',
-                      style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-              const SizedBox(height: 6),
-              ...favorites.map((k) => _templateTile(k, prefs)).toList(),
-              const Divider(),
-            ],
-            Expanded(
-              child: ListView(
-                children: categories.entries.map((entry) {
-                  final cat = entry.key;
-                  final setting = categorySettings[cat] ??
-                      TemplateCategorySetting(
-                          color: Colors.grey, icon: Icons.folder);
+          child: ListView(
+            children: categories.entries.map((entry) {
+              return ExpansionTile(
+                title: Text(entry.key,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                children: entry.value.map((fullKey) {
+                  final name = fullKey.split('/').last;
+                  return ListTile(
+                    title: Text(name),
+                    leading: const Icon(Icons.list_alt),
+                    onTap: () async {
+                      final data = prefs.getString(fullKey);
+                      if (data == null) return;
 
-                  final filtered = entry.value.where((k) {
-                    final name = k.split('/').last.toLowerCase();
-                    return name.contains(templateSearch) &&
-                        !favorites.contains(k);
-                  }).toList();
+                      final items = (jsonDecode(data) as List)
+                          .map((e) => Map<String, dynamic>.from(e))
+                          .toList();
 
-                  if (filtered.isEmpty) return const SizedBox();
+                      // 🔍 미리보기
+                      final proceed = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: Text('미리보기 · $name'),
+                          content: SizedBox(
+                            height: 250,
+                            width: double.maxFinite,
+                            child: ListView.builder(
+                              itemCount: items.length,
+                              itemBuilder: (_, i) => ListTile(
+                                leading: Icon(
+                                  items[i]['isChecked'] == true
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                ),
+                                title: Text(items[i]['title'] ?? ''),
+                                subtitle: items[i]['group'] != null
+                                    ? Text('그룹: ${items[i]['group']}')
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(context, false),
+                                child: const Text('취소')),
+                            ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.pop(context, true),
+                                child: const Text('적용')),
+                          ],
+                        ),
+                      );
 
-                  return Card(
-                    child: ExpansionTile(
-                      leading: CircleAvatar(
-                        backgroundColor: setting.color,
-                        child: Icon(setting.icon, color: Colors.white),
-                      ),
-                      title: Text(cat),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.settings),
-                        onPressed: () => _editCategory(cat),
-                      ),
-                      children:
-                      filtered.map((k) => _templateTile(k, prefs)).toList(),
-                    ),
+                      if (proceed != true) return;
+
+                      // ➕ 덮어쓰기 / 추가 선택
+                      final mode = await showDialog<String>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('적용 방식'),
+                          content:
+                          const Text('기존 체크리스트에 어떻게 적용할까요?'),
+                          actions: [
+                            TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(context, 'add'),
+                                child: const Text('추가')),
+                            ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.pop(context, 'overwrite'),
+                                child: const Text('덮어쓰기')),
+                          ],
+                        ),
+                      );
+
+                      if (mode == null) return;
+
+                      setState(() {
+                        if (mode == 'overwrite') {
+                          widget.todo.checklist!.clear();
+                        }
+                        widget.todo.checklist!.addAll(items);
+                      });
+
+                      _saveAndRefresh();
+                      Navigator.pop(context);
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content:
+                            Text("'${entry.key} > $name' 적용 완료")),
+                      );
+                    },
                   );
                 }).toList(),
-              ),
-            ),
-          ]),
+              );
+            }).toList(),
+          ),
         );
       },
     );
   }
 
-  Widget _templateTile(String key, SharedPreferences prefs) {
-    final name = key.split('/').last;
-    final fav = favorites.contains(key);
-
-    return ListTile(
-      title: Text(name),
-      leading: IconButton(
-        icon: Icon(fav ? Icons.star : Icons.star_border),
-        onPressed: () {
-          setState(() {
-            fav ? favorites.remove(key) : favorites.add(key);
-          });
-          _saveSettings();
-        },
-      ),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () async {
-        final data = prefs.getString(key);
-        if (data == null) return;
-        final list = jsonDecode(data) as List;
-        _previewTemplate(name, list);
-      },
-    );
-  }
-  void _previewTemplate(String name, List list) {
-    final items = list.cast<Map<String, dynamic>>();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(name,
-                style:
-                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('항목 ${items.length}개'),
-            const SizedBox(height: 8),
-            ...items.take(3).map((e) => ListTile(
-              title: Text(e['title'] ?? ''),
-              leading: const Icon(Icons.check_box_outline_blank),
-            )),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                  child: OutlinedButton(
-                      onPressed: () {
-                        _applyTemplate(items, 'add');
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('추가'))),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: OutlinedButton(
-                      onPressed: () {
-                        _applyTemplate(items, 'merge');
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('스마트 병합'))),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: ElevatedButton(
-                      onPressed: () {
-                        _applyTemplate(items, 'overwrite');
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('덮어쓰기'))),
-            ])
-          ]),
-        );
-      },
-    );
-  }
-
-  void _applyTemplate(List<Map<String, dynamic>> items, String mode) {
-    setState(() {
-      widget.todo.checklist ??= [];
-
-      if (mode == 'overwrite') {
-        widget.todo.checklist!.clear();
-      }
-
-      if (mode == 'merge') {
-        for (var it in items) {
-          final exists = widget.todo.checklist!.any((e) =>
-          e['title'] == it['title'] && e['group'] == it['group']);
-          if (!exists) widget.todo.checklist!.add(Map.from(it));
-        }
-      } else {
-        for (var it in items) {
-          widget.todo.checklist!.add(Map.from(it));
-        }
-      }
-    });
-
-    widget.todo.save();
-    context.read<ListViewModel>().refresh();
-  }
-  void _editCategory(String cat) {
-    Color color = categorySettings[cat]?.color ?? Colors.blue;
-    IconData icon = categorySettings[cat]?.icon ?? Icons.folder;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setInner) {
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('카테고리 설정: $cat',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: palette
-                    .map((c) => GestureDetector(
-                  onTap: () => setInner(() => color = c),
-                  child: CircleAvatar(backgroundColor: c),
-                ))
-                    .toList(),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: icons
-                    .map((i) => IconButton(
-                  icon: Icon(i,
-                      color: i == icon ? color : Colors.grey),
-                  onPressed: () => setInner(() => icon = i),
-                ))
-                    .toList(),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      categorySettings[cat] =
-                          TemplateCategorySetting(color: color, icon: icon);
-                    });
-                    _saveSettings();
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('저장'))
-            ]),
-          );
-        });
-      },
-    );
-  }
+  // ======================================================
+  // UI
+  // ======================================================
   @override
   Widget build(BuildContext context) {
+    final checklist = widget.todo.checklist!;
+    final done =
+        checklist.where((e) => e['isChecked'] == true).length;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('체크리스트'),
+        title: Text('체크리스트 ($done/${checklist.length})'),
         actions: [
-          IconButton(
-              icon: const Icon(Icons.folder_open),
-              onPressed: _openTemplateManager),
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              if (v == 'saveTemplate') _saveTemplate();
+              if (v == 'loadTemplate') _loadTemplate();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                  value: 'saveTemplate', child: Text('템플릿 저장')),
+              PopupMenuItem(
+                  value: 'loadTemplate', child: Text('템플릿 불러오기')),
+            ],
+          ),
         ],
       ),
-      body: const Center(
-        child: Text('👉 기존 체크리스트 UI 그대로 유지'),
+      body: ListView.builder(
+        itemCount: checklist.length,
+        itemBuilder: (_, i) {
+          final item = checklist[i];
+          return CheckboxListTile(
+            value: item['isChecked'] == true,
+            title: Text(item['title'] ?? ''),
+            onChanged: (v) {
+              setState(() => item['isChecked'] = v);
+              _saveAndRefresh();
+            },
+          );
+        },
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                decoration:
+                const InputDecoration(labelText: '체크리스트 추가'),
+                onSubmitted: (_) => _addItem(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(onPressed: _addItem, child: const Text('추가'))
+          ],
+        ),
       ),
     );
+  }
+
+  void _addItem() {
+    final text = controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      widget.todo.checklist!.add({
+        'title': text,
+        'isChecked': false,
+        'group': _selectedGroup,
+      });
+      controller.clear();
+    });
+    _saveAndRefresh();
   }
 }
