@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 
@@ -15,30 +16,75 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final TextEditingController controller = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
 
-  String _templateSearch = '';
-  int _templateTab = 0;
+  bool _searchMode = false;
+  String _query = '';
   bool _hideCompleted = false;
 
   @override
   void initState() {
     super.initState();
     widget.todo.checklist ??= [];
+    _syncFromFirebase();
+  }
+
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
+
+  String get _docId => widget.todo.id.toString();
+
+  void _syncToFirebase() {
+    _db.collection('checklists').doc(_docId).set({
+      'items': widget.todo.checklist,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  void _syncFromFirebase() {
+    _db.collection('checklists').doc(_docId).snapshots().listen((doc) {
+      if (!doc.exists) return;
+      final data = doc.data();
+      if (data == null) return;
+      final list = List<Map<String, dynamic>>.from(
+        (data['items'] ?? []).map((e) => Map<String, dynamic>.from(e)),
+      );
+      setState(() => widget.todo.checklist = list);
+    });
   }
 
   void _saveAndRefresh() {
-    widget.todo.checklist!.sort((a, b) {
-      final p = (b['priority'] ?? 1).compareTo(a['priority'] ?? 1);
-      if (p != 0) return p;
-      final ad = a['due'] ?? 0;
-      final bd = b['due'] ?? 0;
-      return ad.compareTo(bd);
-    });
-
+    _sortItems();
     widget.todo.save();
+    _syncToFirebase();
     try {
       context.read<ListViewModel>().refresh();
     } catch (_) {}
+  }
+
+  void _sortItems() {
+    widget.todo.checklist!.sort((a, b) {
+      if ((a['pinned'] ?? false) != (b['pinned'] ?? false)) {
+        return (b['pinned'] == true) ? 1 : -1;
+      }
+      final p = (b['priority'] ?? 1).compareTo(a['priority'] ?? 1);
+      if (p != 0) return p;
+      return (a['createdAt'] ?? 0).compareTo(b['createdAt'] ?? 0);
+    });
+  }
+
+  List<Map<String, dynamic>> get _visibleList {
+    Iterable<Map<String, dynamic>> list = widget.todo.checklist!;
+    if (_hideCompleted) {
+      list = list.where((e) => e['isChecked'] != true);
+    }
+    if (_query.isNotEmpty) {
+      list = list.where((e) {
+        final t = (e['title'] ?? '').toString().toLowerCase();
+        final m = (e['memo'] ?? '').toString().toLowerCase();
+        return t.contains(_query) || m.contains(_query);
+      });
+    }
+    return list.toList();
   }
 
   double get _progress {
@@ -47,196 +93,40 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     return list.where((e) => e['isChecked'] == true).length / list.length;
   }
 
-  List<Map<String, dynamic>> get _visibleList {
-    if (!_hideCompleted) return widget.todo.checklist!;
-    return widget.todo.checklist!
-        .where((e) => e['isChecked'] != true)
-        .toList();
-  }
-
-  Future<void> _saveTemplate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final nameC = TextEditingController();
-    final catC = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('템플릿 저장'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameC, decoration: const InputDecoration(labelText: '이름')),
-            TextField(controller: catC, decoration: const InputDecoration(labelText: '카테고리')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameC.text.trim();
-              final cat = catC.text.trim().isEmpty ? '기본' : catC.text.trim();
-              if (name.isEmpty) return;
-              await prefs.setString(
-                'template/$cat/$name',
-                jsonEncode(widget.todo.checklist),
-              );
-              Navigator.pop(context);
-            },
-            child: const Text('저장'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _loadTemplate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys().where((k) => k.startsWith('template/')).toList();
-    if (keys.isEmpty) return;
-
-    final Map<String, List<String>> categories = {};
-    for (var k in keys) {
-      final cat = k.split('/')[1];
-      categories.putIfAbsent(cat, () => []);
-      categories[cat]!.add(k);
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (ctx, setModal) {
-            return Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  TextField(
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      hintText: '템플릿 검색',
-                      isDense: true,
-                    ),
-                    onChanged: (v) => setModal(() => _templateSearch = v.toLowerCase()),
-                  ),
-                  const SizedBox(height: 8),
-                  ToggleButtons(
-                    isSelected: [_templateTab == 0, _templateTab == 1],
-                    onPressed: (i) => setModal(() => _templateTab = i),
-                    children: const [
-                      Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('전체')),
-                      Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('⭐ 즐겨찾기')),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: ListView(
-                      children: categories.entries.map((entry) {
-                        var list = entry.value.where((k) {
-                          final name = k.split('/').last.toLowerCase();
-                          final fav = prefs.getBool('fav_$k') == true;
-                          if (_templateTab == 1 && !fav) return false;
-                          return _templateSearch.isEmpty || name.contains(_templateSearch);
-                        }).toList();
-
-                        if (list.isEmpty) return const SizedBox.shrink();
-
-                        list.sort((a, b) {
-                          final af = prefs.getBool('fav_$a') == true;
-                          final bf = prefs.getBool('fav_$b') == true;
-                          if (af != bf) return af ? -1 : 1;
-                          final ar = prefs.getInt('recent_$a') ?? 0;
-                          final br = prefs.getInt('recent_$b') ?? 0;
-                          return br.compareTo(ar);
-                        });
-
-                        return ExpansionTile(
-                          title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          children: list.map((fullKey) {
-                            final name = fullKey.split('/').last;
-                            final isFav = prefs.getBool('fav_$fullKey') == true;
-
-                            return ListTile(
-                              title: Text(name),
-                              trailing: IconButton(
-                                icon: Icon(isFav ? Icons.star : Icons.star_border),
-                                onPressed: () async {
-                                  await prefs.setBool('fav_$fullKey', !isFav);
-                                  setModal(() {});
-                                },
-                              ),
-                              onTap: () async {
-                                final raw = prefs.getString(fullKey);
-                                if (raw == null) return;
-                                final items = (jsonDecode(raw) as List)
-                                    .map((e) => Map<String, dynamic>.from(e))
-                                    .toList();
-
-                                final mode = await showDialog<String>(
-                                  context: context,
-                                  builder: (_) => AlertDialog(
-                                    title: const Text('적용 방식'),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(context, 'add'), child: const Text('추가')),
-                                      ElevatedButton(onPressed: () => Navigator.pop(context, 'overwrite'), child: const Text('덮어쓰기')),
-                                    ],
-                                  ),
-                                );
-                                if (mode == null) return;
-
-                                setState(() {
-                                  if (mode == 'overwrite') widget.todo.checklist!.clear();
-                                  widget.todo.checklist!.addAll(items);
-                                });
-
-                                await prefs.setInt('recent_$fullKey', DateTime.now().millisecondsSinceEpoch);
-                                _saveAndRefresh();
-                                Navigator.pop(context);
-                              },
-                            );
-                          }).toList(),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final list = _visibleList;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('체크리스트'),
+        title: _searchMode
+            ? TextField(
+          controller: searchController,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '전체 검색'),
+          onChanged: (v) => setState(() => _query = v.toLowerCase()),
+        )
+            : const Text('체크리스트'),
         actions: [
           IconButton(
-            icon: Icon(_hideCompleted ? Icons.visibility_off : Icons.visibility),
-            onPressed: () => setState(() => _hideCompleted = !_hideCompleted),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (v) {
-              if (v == 'save') _saveTemplate();
-              if (v == 'load') _loadTemplate();
+            icon: Icon(_searchMode ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                _searchMode = !_searchMode;
+                _query = '';
+                searchController.clear();
+              });
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'save', child: Text('템플릿 저장')),
-              PopupMenuItem(value: 'load', child: Text('템플릿 불러오기')),
-            ],
+          ),
+          IconButton(
+            icon:
+            Icon(_hideCompleted ? Icons.visibility_off : Icons.visibility),
+            onPressed: () =>
+                setState(() => _hideCompleted = !_hideCompleted),
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(30),
+          preferredSize: const Size.fromHeight(28),
           child: LinearProgressIndicator(value: _progress),
         ),
       ),
@@ -268,7 +158,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                   action: SnackBarAction(
                     label: '되돌리기',
                     onPressed: () {
-                      setState(() => widget.todo.checklist!.insert(idx, item));
+                      setState(() =>
+                          widget.todo.checklist!.insert(idx, item));
                       _saveAndRefresh();
                     },
                   ),
@@ -277,10 +168,21 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               _saveAndRefresh();
             },
             child: ListTile(
-              leading: const Icon(Icons.drag_handle),
+              leading: IconButton(
+                icon: Icon(
+                  item['pinned'] == true
+                      ? Icons.push_pin
+                      : Icons.push_pin_outlined,
+                ),
+                onPressed: () {
+                  setState(() => item['pinned'] = !(item['pinned'] == true));
+                  _saveAndRefresh();
+                },
+              ),
               title: CheckboxListTile(
                 value: item['isChecked'] == true,
-                title: Text(item['title'], style: TextStyle(color: color)),
+                title:
+                Text(item['title'], style: TextStyle(color: color)),
                 onChanged: (v) {
                   setState(() => item['isChecked'] = v);
                   _saveAndRefresh();
@@ -294,9 +196,18 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                     builder: (_) => SimpleDialog(
                       title: const Text('우선순위'),
                       children: [
-                        SimpleDialogOption(onPressed: () => Navigator.pop(context, 2), child: const Text('높음')),
-                        SimpleDialogOption(onPressed: () => Navigator.pop(context, 1), child: const Text('보통')),
-                        SimpleDialogOption(onPressed: () => Navigator.pop(context, 0), child: const Text('낮음')),
+                        SimpleDialogOption(
+                            onPressed: () =>
+                                Navigator.pop(context, 2),
+                            child: const Text('높음')),
+                        SimpleDialogOption(
+                            onPressed: () =>
+                                Navigator.pop(context, 1),
+                            child: const Text('보통')),
+                        SimpleDialogOption(
+                            onPressed: () =>
+                                Navigator.pop(context, 0),
+                            child: const Text('낮음')),
                       ],
                     ),
                   );
@@ -337,6 +248,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         'title': text,
         'isChecked': false,
         'priority': 1,
+        'pinned': false,
+        'memo': '',
         'createdAt': DateTime.now().millisecondsSinceEpoch,
       });
       controller.clear();
