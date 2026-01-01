@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
@@ -18,76 +16,66 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   final TextEditingController controller = TextEditingController();
   final TextEditingController searchController = TextEditingController();
 
-  bool _searchMode = false;
-  String _query = '';
-  bool _hideCompleted = false;
+  bool searchMode = false;
+  bool hideCompleted = false;
+  String query = '';
+  DateTime? lastUpdated;
+
+  FirebaseFirestore get db => FirebaseFirestore.instance;
+  String get docId => widget.todo.id.toString();
 
   @override
   void initState() {
     super.initState();
     widget.todo.checklist ??= [];
-    _syncFromFirebase();
+    _listenFirebase();
   }
 
-  FirebaseFirestore get _db => FirebaseFirestore.instance;
-
-  String get _docId => widget.todo.id.toString();
-
-  void _syncToFirebase() {
-    _db.collection('checklists').doc(_docId).set({
-      'items': widget.todo.checklist,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  void _syncFromFirebase() {
-    _db.collection('checklists').doc(_docId).snapshots().listen((doc) {
+  void _listenFirebase() {
+    db.collection('checklists').doc(docId).snapshots().listen((doc) {
       if (!doc.exists) return;
       final data = doc.data();
       if (data == null) return;
-      final list = List<Map<String, dynamic>>.from(
-        (data['items'] ?? []).map((e) => Map<String, dynamic>.from(e)),
-      );
-      setState(() => widget.todo.checklist = list);
+      setState(() {
+        widget.todo.checklist =
+        List<Map<String, dynamic>>.from(data['items'] ?? []);
+        if (data['updatedAt'] != null) {
+          lastUpdated = (data['updatedAt'] as Timestamp).toDate();
+        }
+      });
     });
   }
 
-  void _saveAndRefresh() {
-    _sortItems();
+  void _syncFirebase() {
+    db.collection('checklists').doc(docId).set({
+      'items': widget.todo.checklist,
+      'favorite': widget.todo.isFavorite ?? false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  void _save() {
     widget.todo.save();
-    _syncToFirebase();
+    _syncFirebase();
     try {
       context.read<ListViewModel>().refresh();
     } catch (_) {}
   }
 
-  void _sortItems() {
-    widget.todo.checklist!.sort((a, b) {
-      if ((a['pinned'] ?? false) != (b['pinned'] ?? false)) {
-        return (b['pinned'] == true) ? 1 : -1;
-      }
-      final p = (b['priority'] ?? 1).compareTo(a['priority'] ?? 1);
-      if (p != 0) return p;
-      return (a['createdAt'] ?? 0).compareTo(b['createdAt'] ?? 0);
-    });
-  }
-
-  List<Map<String, dynamic>> get _visibleList {
+  List<Map<String, dynamic>> get visibleItems {
     Iterable<Map<String, dynamic>> list = widget.todo.checklist!;
-    if (_hideCompleted) {
+    if (hideCompleted) {
       list = list.where((e) => e['isChecked'] != true);
     }
-    if (_query.isNotEmpty) {
-      list = list.where((e) {
-        final t = (e['title'] ?? '').toString().toLowerCase();
-        final m = (e['memo'] ?? '').toString().toLowerCase();
-        return t.contains(_query) || m.contains(_query);
-      });
+    if (query.isNotEmpty) {
+      list = list.where((e) =>
+      (e['title'] ?? '').toLowerCase().contains(query) ||
+          (e['memo'] ?? '').toLowerCase().contains(query));
     }
     return list.toList();
   }
 
-  double get _progress {
+  double get progress {
     final list = widget.todo.checklist!;
     if (list.isEmpty) return 0;
     return list.where((e) => e['isChecked'] == true).length / list.length;
@@ -95,39 +83,63 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final list = _visibleList;
+    final list = visibleItems;
 
     return Scaffold(
       appBar: AppBar(
-        title: _searchMode
+        title: searchMode
             ? TextField(
           controller: searchController,
           autofocus: true,
-          decoration: const InputDecoration(hintText: '전체 검색'),
-          onChanged: (v) => setState(() => _query = v.toLowerCase()),
+          decoration: const InputDecoration(hintText: '검색'),
+          onChanged: (v) => setState(() => query = v.toLowerCase()),
         )
             : const Text('체크리스트'),
         actions: [
           IconButton(
-            icon: Icon(_searchMode ? Icons.close : Icons.search),
+            icon: Icon(widget.todo.isFavorite == true
+                ? Icons.star
+                : Icons.star_border),
+            onPressed: () {
+              setState(() =>
+              widget.todo.isFavorite = !(widget.todo.isFavorite ?? false));
+              _save();
+            },
+          ),
+          IconButton(
+            icon: Icon(searchMode ? Icons.close : Icons.search),
             onPressed: () {
               setState(() {
-                _searchMode = !_searchMode;
-                _query = '';
+                searchMode = !searchMode;
+                query = '';
                 searchController.clear();
               });
             },
           ),
-          IconButton(
-            icon:
-            Icon(_hideCompleted ? Icons.visibility_off : Icons.visibility),
-            onPressed: () =>
-                setState(() => _hideCompleted = !_hideCompleted),
+          PopupMenuButton<String>(
+            onSelected: _handleMenu,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'allDone', child: Text('전체 완료')),
+              PopupMenuItem(value: 'allClear', child: Text('전체 해제')),
+              PopupMenuItem(value: 'clearDone', child: Text('완료 삭제')),
+            ],
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(28),
-          child: LinearProgressIndicator(value: _progress),
+          preferredSize: const Size.fromHeight(40),
+          child: Column(
+            children: [
+              LinearProgressIndicator(value: progress),
+              if (lastUpdated != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '마지막 수정: ${lastUpdated!.toLocal()}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
       body: ReorderableListView.builder(
@@ -138,86 +150,25 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           widget.todo.checklist!.remove(item);
           widget.todo.checklist!.insert(n, item);
           setState(() {});
-          _saveAndRefresh();
+          _save();
         },
         itemBuilder: (_, i) {
           final item = list[i];
-          Color? color;
-          if (item['priority'] == 2) color = Colors.red;
-          if (item['priority'] == 0) color = Colors.grey;
-
-          return Dismissible(
+          return ListTile(
             key: ValueKey(item),
-            background: Container(color: Colors.red),
-            onDismissed: (_) {
-              final idx = widget.todo.checklist!.indexOf(item);
-              setState(() => widget.todo.checklist!.remove(item));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('삭제됨'),
-                  action: SnackBarAction(
-                    label: '되돌리기',
-                    onPressed: () {
-                      setState(() =>
-                          widget.todo.checklist!.insert(idx, item));
-                      _saveAndRefresh();
-                    },
-                  ),
-                ),
-              );
-              _saveAndRefresh();
-            },
-            child: ListTile(
-              leading: IconButton(
-                icon: Icon(
-                  item['pinned'] == true
-                      ? Icons.push_pin
-                      : Icons.push_pin_outlined,
-                ),
-                onPressed: () {
-                  setState(() => item['pinned'] = !(item['pinned'] == true));
-                  _saveAndRefresh();
-                },
-              ),
-              title: CheckboxListTile(
-                value: item['isChecked'] == true,
-                title:
-                Text(item['title'], style: TextStyle(color: color)),
-                onChanged: (v) {
-                  setState(() => item['isChecked'] = v);
-                  _saveAndRefresh();
-                },
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.flag),
-                onPressed: () async {
-                  final p = await showDialog<int>(
-                    context: context,
-                    builder: (_) => SimpleDialog(
-                      title: const Text('우선순위'),
-                      children: [
-                        SimpleDialogOption(
-                            onPressed: () =>
-                                Navigator.pop(context, 2),
-                            child: const Text('높음')),
-                        SimpleDialogOption(
-                            onPressed: () =>
-                                Navigator.pop(context, 1),
-                            child: const Text('보통')),
-                        SimpleDialogOption(
-                            onPressed: () =>
-                                Navigator.pop(context, 0),
-                            child: const Text('낮음')),
-                      ],
-                    ),
-                  );
-                  if (p != null) {
-                    setState(() => item['priority'] = p);
-                    _saveAndRefresh();
-                  }
-                },
-              ),
+            leading: Checkbox(
+              value: item['isChecked'] == true,
+              onChanged: (v) {
+                setState(() => item['isChecked'] = v);
+                _save();
+              },
             ),
+            title: Text(item['title']),
+            subtitle:
+            item['memo'] != null && item['memo'].toString().isNotEmpty
+                ? Text(item['memo'])
+                : null,
+            onLongPress: () => _editMemo(item),
           );
         },
       ),
@@ -247,13 +198,53 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       widget.todo.checklist!.add({
         'title': text,
         'isChecked': false,
-        'priority': 1,
-        'pinned': false,
         'memo': '',
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
       });
       controller.clear();
     });
-    _saveAndRefresh();
+    _save();
+  }
+
+  void _editMemo(Map<String, dynamic> item) async {
+    final c = TextEditingController(text: item['memo']);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('메모 수정'),
+        content: TextField(controller: c, maxLines: 3),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('저장')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      setState(() => item['memo'] = c.text.trim());
+      _save();
+    }
+  }
+
+  void _handleMenu(String v) {
+    setState(() {
+      if (v == 'allDone') {
+        for (var e in widget.todo.checklist!) {
+          e['isChecked'] = true;
+        }
+      }
+      if (v == 'allClear') {
+        for (var e in widget.todo.checklist!) {
+          e['isChecked'] = false;
+        }
+      }
+      if (v == 'clearDone') {
+        widget.todo.checklist!
+            .removeWhere((e) => e['isChecked'] == true);
+      }
+    });
+    _save();
   }
 }
