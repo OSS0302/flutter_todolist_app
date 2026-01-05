@@ -63,10 +63,14 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     } catch (_) {}
   }
 
+  /// ✅ 자동 정렬 (핀 → 미완료 → 완료 → 마감일 → 생성일)
   void _sortItems() {
     widget.todo.checklist!.sort((a, b) {
       if ((a['pinned'] ?? false) != (b['pinned'] ?? false)) {
         return a['pinned'] == true ? -1 : 1;
+      }
+      if ((a['isChecked'] ?? false) != (b['isChecked'] ?? false)) {
+        return a['isChecked'] == true ? 1 : -1;
       }
       final ad = a['due'];
       final bd = b['due'];
@@ -90,16 +94,31 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     return list.toList();
   }
 
+  List<Map<String, dynamic>> get pinnedItems =>
+      visibleItems.where((e) => e['pinned'] == true).toList();
+
+  List<Map<String, dynamic>> get normalItems =>
+      visibleItems.where((e) => e['pinned'] != true).toList();
+
   double get progress {
     final list = widget.todo.checklist!;
     if (list.isEmpty) return 0;
     return list.where((e) => e['isChecked'] == true).length / list.length;
   }
 
+  /// ✅ D-Day 텍스트
+  String _dDayText(int due) {
+    final today = DateTime.now();
+    final d = DateTime.fromMillisecondsSinceEpoch(due);
+    final base = DateTime(today.year, today.month, today.day);
+    final diff = d.difference(base).inDays;
+    if (diff == 0) return 'D-Day';
+    if (diff > 0) return 'D-$diff';
+    return 'D+${diff.abs()}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final list = visibleItems;
-
     return Scaffold(
       appBar: AppBar(
         title: searchMode
@@ -142,102 +161,30 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(40),
+          preferredSize: const Size.fromHeight(36),
           child: Column(
             children: [
               LinearProgressIndicator(value: progress),
               if (lastUpdated != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '마지막 수정: ${lastUpdated!.toLocal()}',
-                    style: const TextStyle(fontSize: 11),
-                  ),
+                Text(
+                  '마지막 수정: ${lastUpdated!.toLocal()}',
+                  style: const TextStyle(fontSize: 11),
                 ),
             ],
           ),
         ),
       ),
-      body: ReorderableListView.builder(
-        itemCount: list.length,
-        onReorder: (o, n) {
-          if (n > o) n--;
-          final item = list.removeAt(o);
-          widget.todo.checklist!.remove(item);
-          widget.todo.checklist!.insert(n, item);
-          setState(() {});
-          _save();
-        },
-        itemBuilder: (_, i) {
-          final item = list[i];
-          return Dismissible(
-            key: ValueKey(item),
-            background: Container(
-              color: Colors.red,
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.only(left: 20),
-              child: const Icon(Icons.delete, color: Colors.white),
-            ),
-            onDismissed: (_) {
-              final idx = widget.todo.checklist!.indexOf(item);
-              setState(() => widget.todo.checklist!.remove(item));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('삭제됨'),
-                  action: SnackBarAction(
-                    label: '되돌리기',
-                    onPressed: () {
-                      setState(() =>
-                          widget.todo.checklist!.insert(idx, item));
-                      _save();
-                    },
-                  ),
-                ),
-              );
-              _save();
-            },
-            child: ListTile(
-              leading: IconButton(
-                icon: Icon(item['pinned'] == true
-                    ? Icons.push_pin
-                    : Icons.push_pin_outlined),
-                onPressed: () {
-                  setState(() =>
-                  item['pinned'] = !(item['pinned'] == true));
-                  _save();
-                },
-              ),
-              title: CheckboxListTile(
-                value: item['isChecked'] == true,
-                title: Text(
-                  item['title'],
-                  style: TextStyle(
-                    decoration: item['isChecked'] == true
-                        ? TextDecoration.lineThrough
-                        : null,
-                    color: _dueColor(item),
-                  ),
-                ),
-                onChanged: (v) {
-                  setState(() => item['isChecked'] = v);
-                  _save();
-                },
-              ),
-              subtitle: item['due'] != null
-                  ? Text(
-                '마감: ${DateTime.fromMillisecondsSinceEpoch(item['due']).toLocal().toString().split(' ').first}',
-                style: TextStyle(color: _dueColor(item)),
-              )
-                  : null,
-              trailing: IconButton(
-                icon: const Icon(Icons.calendar_today),
-                onPressed: () => _pickDueDate(item),
-              ),
-              onLongPress: () => _editMemo(item),
-            ),
-          );
-        },
+
+      /// ✅ 핀 섹션 분리
+      body: ListView(
+        children: [
+          if (pinnedItems.isNotEmpty) _sectionHeader('📌 고정됨'),
+          ...pinnedItems.map(_buildItem),
+          if (normalItems.isNotEmpty) _sectionHeader('일반'),
+          ...normalItems.map(_buildItem),
+        ],
       ),
+
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -253,6 +200,63 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             ElevatedButton(onPressed: _addItem, child: const Text('추가')),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(title,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold, color: Colors.grey)),
+    );
+  }
+
+  Widget _buildItem(Map<String, dynamic> item) {
+    return Dismissible(
+      key: ValueKey(item),
+      background: Container(color: Colors.red),
+      onDismissed: (_) {
+        setState(() => widget.todo.checklist!.remove(item));
+        _save();
+      },
+      child: ListTile(
+        leading: IconButton(
+          icon: Icon(item['pinned'] == true
+              ? Icons.push_pin
+              : Icons.push_pin_outlined),
+          onPressed: () {
+            setState(() => item['pinned'] = !(item['pinned'] == true));
+            _save();
+          },
+        ),
+        title: CheckboxListTile(
+          value: item['isChecked'] == true,
+          title: Text(
+            item['title'],
+            style: TextStyle(
+              decoration: item['isChecked'] == true
+                  ? TextDecoration.lineThrough
+                  : null,
+            ),
+          ),
+          onChanged: (v) {
+            setState(() => item['isChecked'] = v);
+            _save();
+          },
+        ),
+        subtitle: item['due'] != null
+            ? Text(
+          '마감 ${_dDayText(item['due'])}',
+          style: TextStyle(color: _dueColor(item)),
+        )
+            : null,
+        trailing: IconButton(
+          icon: const Icon(Icons.calendar_today),
+          onPressed: () => _pickDueDate(item),
+        ),
+        onTap: () => _editTitle(item),
       ),
     );
   }
@@ -274,21 +278,26 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     _save();
   }
 
-  void _editMemo(Map<String, dynamic> item) async {
-    final c = TextEditingController(text: item['memo']);
+  /// ✅ 제목 수정
+  void _editTitle(Map<String, dynamic> item) async {
+    final c = TextEditingController(text: item['title']);
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('메모 수정'),
-        content: TextField(controller: c, maxLines: 3),
+        title: const Text('제목 수정'),
+        content: TextField(controller: c, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('저장')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('저장')),
         ],
       ),
     );
-    if (ok == true) {
-      setState(() => item['memo'] = c.text.trim());
+    if (ok == true && c.text.trim().isNotEmpty) {
+      setState(() => item['title'] = c.text.trim());
       _save();
     }
   }
