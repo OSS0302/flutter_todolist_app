@@ -63,7 +63,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     } catch (_) {}
   }
 
-  /// ✅ 자동 정렬 (핀 → 미완료 → 완료 → 마감일 → 생성일)
+  /// 🔄 정렬: 핀 → 미완료 → 완료 → order
   void _sortItems() {
     widget.todo.checklist!.sort((a, b) {
       if ((a['pinned'] ?? false) != (b['pinned'] ?? false)) {
@@ -72,12 +72,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       if ((a['isChecked'] ?? false) != (b['isChecked'] ?? false)) {
         return a['isChecked'] == true ? 1 : -1;
       }
-      final ad = a['due'];
-      final bd = b['due'];
-      if (ad != null && bd != null) return ad.compareTo(bd);
-      if (ad != null) return -1;
-      if (bd != null) return 1;
-      return (a['createdAt'] ?? 0).compareTo(b['createdAt'] ?? 0);
+      return (a['order'] ?? 0).compareTo(b['order'] ?? 0);
     });
   }
 
@@ -106,82 +101,37 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     return list.where((e) => e['isChecked'] == true).length / list.length;
   }
 
-  /// ✅ D-Day 텍스트
-  String _dDayText(int due) {
-    final today = DateTime.now();
+  /// 📅 D-Day + 시간
+  String _dueText(int due) {
     final d = DateTime.fromMillisecondsSinceEpoch(due);
-    final base = DateTime(today.year, today.month, today.day);
+    final now = DateTime.now();
+    final base = DateTime(now.year, now.month, now.day);
     final diff = d.difference(base).inDays;
-    if (diff == 0) return 'D-Day';
-    if (diff > 0) return 'D-$diff';
-    return 'D+${diff.abs()}';
+
+    final dday =
+    diff == 0 ? 'D-Day' : diff > 0 ? 'D-$diff' : 'D+${diff.abs()}';
+
+    return '$dday · ${d.month}/${d.day} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: searchMode
-            ? TextField(
-          controller: searchController,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '검색'),
-          onChanged: (v) => setState(() => query = v.toLowerCase()),
-        )
-            : const Text('체크리스트'),
-        actions: [
-          IconButton(
-            icon: Icon(widget.todo.isFavorite
-                ? Icons.star
-                : Icons.star_border),
-            onPressed: () {
-              setState(() =>
-              widget.todo.isFavorite = !widget.todo.isFavorite);
-              _save();
-            },
-          ),
-          IconButton(
-            icon: Icon(searchMode ? Icons.close : Icons.search),
-            onPressed: () {
-              setState(() {
-                searchMode = !searchMode;
-                query = '';
-                searchController.clear();
-              });
-            },
-          ),
-          PopupMenuButton<String>(
-            onSelected: _handleMenu,
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'allDone', child: Text('전체 완료')),
-              PopupMenuItem(value: 'allClear', child: Text('전체 해제')),
-              PopupMenuItem(value: 'clearDone', child: Text('완료 삭제')),
-              PopupMenuItem(value: 'hide', child: Text('완료 숨기기')),
-            ],
-          ),
-        ],
+        title: const Text('체크리스트'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(36),
-          child: Column(
-            children: [
-              LinearProgressIndicator(value: progress),
-              if (lastUpdated != null)
-                Text(
-                  '마지막 수정: ${lastUpdated!.toLocal()}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-            ],
-          ),
+          preferredSize: const Size.fromHeight(30),
+          child: LinearProgressIndicator(value: progress),
         ),
       ),
 
-      /// ✅ 핀 섹션 분리
+      /// 🔄 섹션 유지 드래그
       body: ListView(
         children: [
-          if (pinnedItems.isNotEmpty) _sectionHeader('📌 고정됨'),
-          ...pinnedItems.map(_buildItem),
-          if (normalItems.isNotEmpty) _sectionHeader('일반'),
-          ...normalItems.map(_buildItem),
+          if (pinnedItems.isNotEmpty)
+            _section('📌 고정됨', pinnedItems),
+          if (normalItems.isNotEmpty)
+            _section('일반', normalItems),
         ],
       ),
 
@@ -204,60 +154,78 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
   }
 
-  Widget _sectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Text(title,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold, color: Colors.grey)),
+  Widget _section(String title, List<Map<String, dynamic>> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(title,
+              style:
+              const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+        ),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          onReorder: (o, n) {
+            if (n > o) n--;
+            final item = items.removeAt(o);
+            items.insert(n, item);
+            for (int i = 0; i < items.length; i++) {
+              items[i]['order'] = i;
+            }
+            _save();
+          },
+          itemBuilder: (_, i) => _item(items[i]),
+        ),
+      ],
     );
   }
 
-  Widget _buildItem(Map<String, dynamic> item) {
-    return Dismissible(
+  Widget _item(Map<String, dynamic> item) {
+    return ListTile(
       key: ValueKey(item),
-      background: Container(color: Colors.red),
-      onDismissed: (_) {
-        setState(() => widget.todo.checklist!.remove(item));
-        _save();
-      },
-      child: ListTile(
-        leading: IconButton(
-          icon: Icon(item['pinned'] == true
-              ? Icons.push_pin
-              : Icons.push_pin_outlined),
-          onPressed: () {
-            setState(() => item['pinned'] = !(item['pinned'] == true));
-            _save();
-          },
-        ),
-        title: CheckboxListTile(
-          value: item['isChecked'] == true,
-          title: Text(
-            item['title'],
-            style: TextStyle(
-              decoration: item['isChecked'] == true
-                  ? TextDecoration.lineThrough
-                  : null,
-            ),
-          ),
-          onChanged: (v) {
-            setState(() => item['isChecked'] = v);
-            _save();
-          },
-        ),
-        subtitle: item['due'] != null
-            ? Text(
-          '마감 ${_dDayText(item['due'])}',
-          style: TextStyle(color: _dueColor(item)),
-        )
-            : null,
-        trailing: IconButton(
-          icon: const Icon(Icons.calendar_today),
-          onPressed: () => _pickDueDate(item),
-        ),
-        onTap: () => _editTitle(item),
+      leading: Checkbox(
+        value: item['isChecked'] == true,
+        onChanged: (v) {
+          setState(() => item['isChecked'] = v);
+          _save();
+        },
       ),
+      title: Text(
+        item['title'],
+        style: TextStyle(
+          decoration:
+          item['isChecked'] == true ? TextDecoration.lineThrough : null,
+        ),
+      ),
+
+      /// 📝 메모 미리보기
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if ((item['memo'] ?? '').toString().isNotEmpty)
+            Text(
+              item['memo'],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          if (item['due'] != null)
+            Text(
+              '마감 ${_dueText(item['due'])}',
+              style: TextStyle(color: _dueColor(item), fontSize: 12),
+            ),
+        ],
+      ),
+
+      trailing: IconButton(
+        icon: const Icon(Icons.calendar_today),
+        onPressed: () => _pickDueDateTime(item),
+      ),
+      onTap: () => _editTitle(item),
+      onLongPress: () => _editMemo(item),
     );
   }
 
@@ -267,32 +235,27 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     setState(() {
       widget.todo.checklist!.add({
         'title': text,
-        'isChecked': false,
         'memo': '',
+        'isChecked': false,
         'pinned': false,
         'due': null,
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
+        'order': widget.todo.checklist!.length,
       });
       controller.clear();
     });
     _save();
   }
 
-  /// ✅ 제목 수정
-  void _editTitle(Map<String, dynamic> item) async {
+  void _editTitle(Map item) async {
     final c = TextEditingController(text: item['title']);
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('제목 수정'),
-        content: TextField(controller: c, autofocus: true),
+        content: TextField(controller: c),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('저장')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('저장')),
         ],
       ),
     );
@@ -302,19 +265,44 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     }
   }
 
-  void _pickDueDate(Map<String, dynamic> item) async {
-    final picked = await showDatePicker(
+  void _editMemo(Map item) async {
+    final c = TextEditingController(text: item['memo']);
+    final ok = await showDialog<bool>(
       context: context,
-      initialDate: item['due'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(item['due'])
-          : DateTime.now(),
+      builder: (_) => AlertDialog(
+        title: const Text('메모 수정'),
+        content: TextField(controller: c, maxLines: 3),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('저장')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      setState(() => item['memo'] = c.text.trim());
+      _save();
+    }
+  }
+
+  /// 📅 날짜 + 시간 선택
+  void _pickDueDateTime(Map item) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-    if (picked != null) {
-      setState(() => item['due'] = picked.millisecondsSinceEpoch);
-      _save();
-    }
+    if (date == null) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (time == null) return;
+
+    final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    setState(() => item['due'] = dt.millisecondsSinceEpoch);
+    _save();
   }
 
   Color? _dueColor(Map item) {
@@ -322,27 +310,5 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     final d = DateTime.fromMillisecondsSinceEpoch(item['due']);
     if (d.isBefore(DateTime.now())) return Colors.red;
     return Colors.orange;
-  }
-
-  void _handleMenu(String v) {
-    setState(() {
-      if (v == 'allDone') {
-        for (var e in widget.todo.checklist!) {
-          e['isChecked'] = true;
-        }
-      }
-      if (v == 'allClear') {
-        for (var e in widget.todo.checklist!) {
-          e['isChecked'] = false;
-        }
-      }
-      if (v == 'clearDone') {
-        widget.todo.checklist!.removeWhere((e) => e['isChecked'] == true);
-      }
-      if (v == 'hide') {
-        hideCompleted = !hideCompleted;
-      }
-    });
-    _save();
   }
 }
