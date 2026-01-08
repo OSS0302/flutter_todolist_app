@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
+
+final FlutterLocalNotificationsPlugin notifications =
+FlutterLocalNotificationsPlugin();
 
 class ChecklistScreen extends StatefulWidget {
   final Todo todo;
@@ -14,12 +18,6 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final TextEditingController controller = TextEditingController();
-  final TextEditingController searchController = TextEditingController();
-
-  bool searchMode = false;
-  bool hideCompleted = false;
-  String query = '';
-  DateTime? lastUpdated;
 
   FirebaseFirestore get db => FirebaseFirestore.instance;
   String get docId => widget.todo.id.toString();
@@ -28,7 +26,16 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   void initState() {
     super.initState();
     widget.todo.checklist ??= [];
+    _initNotification();
     _listenFirebase();
+  }
+
+  Future<void> _initNotification() async {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const ios = DarwinInitializationSettings();
+    await notifications.initialize(
+      const InitializationSettings(android: android, iOS: ios),
+    );
   }
 
   void _listenFirebase() {
@@ -39,31 +46,52 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       setState(() {
         widget.todo.checklist =
         List<Map<String, dynamic>>.from(data['items'] ?? []);
-        if (data['updatedAt'] != null) {
-          lastUpdated = (data['updatedAt'] as Timestamp).toDate();
-        }
       });
     });
   }
 
-  void _syncFirebase() {
-    db.collection('checklists').doc(docId).set({
-      'items': widget.todo.checklist,
-      'favorite': widget.todo.isFavorite,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+  /// 🔔 알림 예약 (마감 1시간 전)
+  Future<void> _scheduleAlarm(Map item) async {
+    if (item['due'] == null) return;
+
+    final id = item.hashCode;
+    await notifications.cancel(id);
+
+    final due =
+    DateTime.fromMillisecondsSinceEpoch(item['due'])
+        .subtract(const Duration(hours: 1));
+
+    if (due.isBefore(DateTime.now())) return;
+
+    await notifications.schedule(
+      id,
+      '할 일 마감 알림',
+      item['title'],
+      due,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'todo',
+          '할 일 알림',
+          importance: Importance.max,
+        ),
+      ),
+    );
   }
 
-  void _save() {
+  void _save([Map? item]) {
     _sortItems();
     widget.todo.save();
-    _syncFirebase();
+    db.collection('checklists').doc(docId).set({
+      'items': widget.todo.checklist,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (item != null) _scheduleAlarm(item);
     try {
       context.read<ListViewModel>().refresh();
     } catch (_) {}
   }
 
-  /// 🔄 정렬: 핀 → 미완료 → 완료 → order
+  /// 🔄 정렬
   void _sortItems() {
     widget.todo.checklist!.sort((a, b) {
       if ((a['pinned'] ?? false) != (b['pinned'] ?? false)) {
@@ -76,62 +104,143 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     });
   }
 
-  List<Map<String, dynamic>> get visibleItems {
-    Iterable<Map<String, dynamic>> list = widget.todo.checklist!;
-    if (hideCompleted) {
-      list = list.where((e) => e['isChecked'] != true);
-    }
-    if (query.isNotEmpty) {
-      list = list.where((e) =>
-      (e['title'] ?? '').toLowerCase().contains(query) ||
-          (e['memo'] ?? '').toLowerCase().contains(query));
-    }
-    return list.toList();
+  /// 📊 통계
+  int get weekDone {
+    final now = DateTime.now();
+    final start = now.subtract(Duration(days: now.weekday - 1));
+    return widget.todo.checklist!
+        .where((e) =>
+    e['isChecked'] == true &&
+        DateTime.fromMillisecondsSinceEpoch(e['order'])
+            .isAfter(start))
+        .length;
   }
 
-  List<Map<String, dynamic>> get pinnedItems =>
-      visibleItems.where((e) => e['pinned'] == true).toList();
-
-  List<Map<String, dynamic>> get normalItems =>
-      visibleItems.where((e) => e['pinned'] != true).toList();
-
-  double get progress {
-    final list = widget.todo.checklist!;
-    if (list.isEmpty) return 0;
-    return list.where((e) => e['isChecked'] == true).length / list.length;
+  int get monthDone {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month);
+    return widget.todo.checklist!
+        .where((e) =>
+    e['isChecked'] == true &&
+        DateTime.fromMillisecondsSinceEpoch(e['order'])
+            .isAfter(start))
+        .length;
   }
 
   /// 📅 D-Day + 시간
   String _dueText(int due) {
     final d = DateTime.fromMillisecondsSinceEpoch(due);
-    final now = DateTime.now();
-    final base = DateTime(now.year, now.month, now.day);
-    final diff = d.difference(base).inDays;
-
+    final base = DateTime.now();
+    final diff =
+        d.difference(DateTime(base.year, base.month, base.day)).inDays;
     final dday =
     diff == 0 ? 'D-Day' : diff > 0 ? 'D-$diff' : 'D+${diff.abs()}';
-
     return '$dday · ${d.month}/${d.day} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+
+  Color? _dueColor(Map item, bool dark) {
+    if (item['due'] == null) return null;
+    final d = DateTime.fromMillisecondsSinceEpoch(item['due']);
+    if (d.isBefore(DateTime.now())) {
+      return dark ? Colors.red[300] : Colors.red;
+    }
+    return dark ? Colors.orange[300] : Colors.orange;
   }
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('체크리스트'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(30),
-          child: LinearProgressIndicator(value: progress),
+          preferredSize: const Size.fromHeight(46),
+          child: Column(
+            children: [
+              LinearProgressIndicator(
+                value: widget.todo.checklist!.isEmpty
+                    ? 0
+                    : widget.todo.checklist!
+                    .where((e) => e['isChecked'] == true)
+                    .length /
+                    widget.todo.checklist!.length,
+              ),
+              Padding(
+                padding: const EdgeInsets.all(4),
+                child: Text(
+                  '이번 주 완료 $weekDone · 이번 달 완료 $monthDone',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
 
-      /// 🔄 섹션 유지 드래그
-      body: ListView(
+      /// 📌 핀 드래그 이동
+      body: ReorderableListView(
+        onReorder: (o, n) {
+          if (n > o) n--;
+          final item = widget.todo.checklist!.removeAt(o);
+          widget.todo.checklist!.insert(n, item);
+
+          final pinnedCount = widget.todo.checklist!
+              .where((e) => e['pinned'] == true)
+              .length;
+
+          item['pinned'] = n < pinnedCount;
+          _save(item);
+        },
         children: [
-          if (pinnedItems.isNotEmpty)
-            _section('📌 고정됨', pinnedItems),
-          if (normalItems.isNotEmpty)
-            _section('일반', normalItems),
+          for (final item in widget.todo.checklist!)
+            ListTile(
+              key: ValueKey(item),
+              tileColor: item['isChecked'] == true
+                  ? (dark ? Colors.grey[800] : Colors.grey[200])
+                  : null,
+              leading: Icon(
+                item['pinned'] == true
+                    ? Icons.push_pin
+                    : Icons.radio_button_unchecked,
+              ),
+              title: Text(
+                item['title'],
+                style: TextStyle(
+                  decoration: item['isChecked'] == true
+                      ? TextDecoration.lineThrough
+                      : null,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if ((item['memo'] ?? '').toString().isNotEmpty)
+                    Text(
+                      item['memo'],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  if (item['due'] != null)
+                    Text(
+                      '마감 ${_dueText(item['due'])}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: _dueColor(item, dark)),
+                    ),
+                ],
+              ),
+              trailing: Checkbox(
+                value: item['isChecked'] == true,
+                onChanged: (v) {
+                  setState(() => item['isChecked'] = v);
+                  _save(item);
+                },
+              ),
+              onTap: () => _editTitle(item),
+              onLongPress: () => _editMemo(item),
+            ),
         ],
       ),
 
@@ -154,81 +263,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
   }
 
-  Widget _section(String title, List<Map<String, dynamic>> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(title,
-              style:
-              const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-        ),
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          onReorder: (o, n) {
-            if (n > o) n--;
-            final item = items.removeAt(o);
-            items.insert(n, item);
-            for (int i = 0; i < items.length; i++) {
-              items[i]['order'] = i;
-            }
-            _save();
-          },
-          itemBuilder: (_, i) => _item(items[i]),
-        ),
-      ],
-    );
-  }
-
-  Widget _item(Map<String, dynamic> item) {
-    return ListTile(
-      key: ValueKey(item),
-      leading: Checkbox(
-        value: item['isChecked'] == true,
-        onChanged: (v) {
-          setState(() => item['isChecked'] = v);
-          _save();
-        },
-      ),
-      title: Text(
-        item['title'],
-        style: TextStyle(
-          decoration:
-          item['isChecked'] == true ? TextDecoration.lineThrough : null,
-        ),
-      ),
-
-      /// 📝 메모 미리보기
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if ((item['memo'] ?? '').toString().isNotEmpty)
-            Text(
-              item['memo'],
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
-            ),
-          if (item['due'] != null)
-            Text(
-              '마감 ${_dueText(item['due'])}',
-              style: TextStyle(color: _dueColor(item), fontSize: 12),
-            ),
-        ],
-      ),
-
-      trailing: IconButton(
-        icon: const Icon(Icons.calendar_today),
-        onPressed: () => _pickDueDateTime(item),
-      ),
-      onTap: () => _editTitle(item),
-      onLongPress: () => _editMemo(item),
-    );
-  }
-
   void _addItem() {
     final text = controller.text.trim();
     if (text.isEmpty) return;
@@ -239,7 +273,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         'isChecked': false,
         'pinned': false,
         'due': null,
-        'order': widget.todo.checklist!.length,
+        'order': DateTime.now().millisecondsSinceEpoch,
       });
       controller.clear();
     });
@@ -261,7 +295,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
     if (ok == true && c.text.trim().isNotEmpty) {
       setState(() => item['title'] = c.text.trim());
-      _save();
+      _save(item);
     }
   }
 
@@ -280,35 +314,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
     if (ok == true) {
       setState(() => item['memo'] = c.text.trim());
-      _save();
+      _save(item);
     }
-  }
-
-  /// 📅 날짜 + 시간 선택
-  void _pickDueDateTime(Map item) async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (date == null) return;
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-    if (time == null) return;
-
-    final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    setState(() => item['due'] = dt.millisecondsSinceEpoch);
-    _save();
-  }
-
-  Color? _dueColor(Map item) {
-    if (item['due'] == null) return null;
-    final d = DateTime.fromMillisecondsSinceEpoch(item['due']);
-    if (d.isBefore(DateTime.now())) return Colors.red;
-    return Colors.orange;
   }
 }
