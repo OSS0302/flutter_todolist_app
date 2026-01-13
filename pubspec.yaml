@@ -67,6 +67,7 @@ dependencies:
   cloud_firestore: ^5.4.0
   firebase_core: ^2.27.0
   firebase_auth: ^4.17.0
+  
 
 
 dev_dependencies:
