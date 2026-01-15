@@ -25,8 +25,7 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final controller = TextEditingController();
-  final FlutterLocalNotificationsPlugin notifications =
-  FlutterLocalNotificationsPlugin();
+  final notifications = FlutterLocalNotificationsPlugin();
 
   FirebaseFirestore get db => FirebaseFirestore.instance;
   String get docId => widget.todo.id.toString();
@@ -44,8 +43,9 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
   Future<void> _initNotification() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: android);
-    await notifications.initialize(settings);
+    await notifications.initialize(
+      const InitializationSettings(android: android),
+    );
   }
 
   Future<void> _scheduleNotification(Map item) async {
@@ -58,7 +58,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     if (due.isBefore(DateTime.now())) return;
 
     await notifications.zonedSchedule(
-      item.hashCode,
+      item['order'] ?? item.hashCode,
       '할 일 알림',
       item['title'],
       tz.TZDateTime.from(due, tz.local),
@@ -77,7 +77,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   }
 
   Future<void> _cancelNotification(Map item) async {
-    await notifications.cancel(item.hashCode);
+    await notifications.cancel(item['order'] ?? item.hashCode);
   }
 
   /* ───────────────── ☁️ Firebase ───────────────── */
@@ -85,9 +85,12 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   void _listenFirebase() {
     db.collection('checklists').doc(docId).snapshots().listen((doc) {
       if (!doc.exists) return;
+      final data = doc.data();
+      if (data == null) return;
+
       setState(() {
         widget.todo.checklist =
-        List<Map<String, dynamic>>.from(doc.data()?['items'] ?? []);
+        List<Map<String, dynamic>>.from(data['items'] ?? []);
       });
     });
   }
@@ -128,23 +131,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     return list.where((e) => e['isChecked'] == true).length / list.length;
   }
 
-  String _dueText(int due) {
-    final d = DateTime.fromMillisecondsSinceEpoch(due);
-    final now = DateTime.now();
-    final diff =
-        d.difference(DateTime(now.year, now.month, now.day)).inDays;
-    final dday =
-    diff == 0 ? 'D-Day' : diff > 0 ? 'D-$diff' : 'D+${diff.abs()}';
-    return '$dday · ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-  }
-
-  Color? _dueColor(Map item) {
-    if (item['due'] == null) return null;
-    final d = DateTime.fromMillisecondsSinceEpoch(item['due']);
-    if (d.isBefore(DateTime.now())) return Colors.red;
-    return Colors.orange;
-  }
-
   /* ───────────────── UI ───────────────── */
 
   @override
@@ -159,7 +145,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) => StatsScreen(widget.todo)),
+                  builder: (_) => StatsScreen(todo: widget.todo),
+                ),
               );
             },
           ),
@@ -196,7 +183,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             if (n > o) n--;
             final item = items.removeAt(o);
             items.insert(n, item);
-            item['pinned'] = title.contains('📌');
             for (int i = 0; i < items.length; i++) {
               items[i]['order'] = i;
             }
@@ -210,7 +196,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
   Widget _item(Map item) {
     return ListTile(
-      key: ValueKey(item),
+      key: ValueKey(item['order']),
       leading: Checkbox(
         value: item['isChecked'] == true,
         onChanged: (v) {
@@ -230,35 +216,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           item['isChecked'] == true ? TextDecoration.lineThrough : null,
         ),
       ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if ((item['memo'] ?? '').toString().isNotEmpty)
-            Text(item['memo'],
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-          if (item['due'] != null)
-            Text('마감 ${_dueText(item['due'])}',
-                style: TextStyle(color: _dueColor(item))),
-        ],
-      ),
-      trailing: PopupMenuButton(
-        itemBuilder: (_) => notifyOptions.entries
-            .map(
-              (e) => PopupMenuItem(
-            value: e.value,
-            child: Text(e.key),
-          ),
-        )
-            .toList(),
-        onSelected: (v) {
-          setState(() => item['notifyOffset'] = v);
-          _scheduleNotification(item);
-          _save();
-        },
-        child: const Icon(Icons.notifications),
-      ),
-      onTap: () => _editTitle(item),
-      onLongPress: () => _editMemo(item),
     );
   }
 
@@ -280,64 +237,19 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
   }
 
-  /* ───────────────── Edit ───────────────── */
-
   void _addItem() {
     final text = controller.text.trim();
     if (text.isEmpty) return;
-    final item = {
+
+    widget.todo.checklist!.add({
       'title': text,
-      'memo': '',
       'isChecked': false,
       'pinned': false,
-      'due': null,
-      'notifyOffset': 0,
       'order': widget.todo.checklist!.length,
       'completedAt': null,
-    };
-    setState(() {
-      widget.todo.checklist!.add(item);
-      controller.clear();
     });
+    controller.clear();
     _save();
-  }
-
-  void _editTitle(Map item) async {
-    final c = TextEditingController(text: item['title']);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('제목 수정'),
-        content: TextField(controller: c),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('저장')),
-        ],
-      ),
-    );
-    if (ok == true) {
-      setState(() => item['title'] = c.text.trim());
-      _save();
-    }
-  }
-
-  void _editMemo(Map item) async {
-    final c = TextEditingController(text: item['memo']);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('메모 수정'),
-        content: TextField(controller: c, maxLines: 3),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('저장')),
-        ],
-      ),
-    );
-    if (ok == true) {
-      setState(() => item['memo'] = c.text.trim());
-      _save();
-    }
   }
 }
 
@@ -345,7 +257,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
 class StatsScreen extends StatelessWidget {
   final Todo todo;
-  const StatsScreen(this.todo, {super.key});
+  const StatsScreen({super.key, required this.todo});
 
   @override
   Widget build(BuildContext context) {
@@ -369,6 +281,20 @@ class StatsScreen extends StatelessWidget {
                 ],
               );
             }).toList(),
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (v, _) =>
+                      Text(['월', '화', '수', '목', '금', '토', '일'][v.toInt()]),
+                ),
+              ),
+              topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            ),
+            borderData: FlBorderData(show: false),
           ),
         ),
       ),
@@ -377,17 +303,14 @@ class StatsScreen extends StatelessWidget {
 
   Map<int, int> _weeklyStats() {
     final now = DateTime.now();
-    final start = now.subtract(const Duration(days: 6));
-    final map = <int, int>{};
+    final start =
+    DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
 
-    for (int i = 0; i < 7; i++) {
-      map[i] = 0;
-    }
+    final map = {for (int i = 0; i < 7; i++) i: 0};
 
-    for (final e in todo.checklist!) {
+    for (final e in todo.checklist ?? []) {
       if (e['completedAt'] == null) continue;
       final d = DateTime.fromMillisecondsSinceEpoch(e['completedAt']);
-      if (d.isBefore(start)) continue;
       final idx = d.difference(start).inDays;
       if (idx >= 0 && idx < 7) map[idx] = map[idx]! + 1;
     }
