@@ -50,32 +50,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     await notifications.initialize(settings);
   }
 
-  Future<void> _scheduleNotification(Map item) async {
-    if (item['due'] == null) return;
-    final offset = item['notifyOffset'] ?? 0;
-    final due = DateTime.fromMillisecondsSinceEpoch(item['due'])
-        .subtract(Duration(minutes: offset));
-    if (due.isBefore(DateTime.now())) return;
-
-    await notifications.zonedSchedule(
-      item.hashCode,
-      '할 일 알림',
-      item['title'],
-      tz.TZDateTime.from(due, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'todo',
-          'todo',
-          importance: Importance.max,
-          priority: Priority.high,
-        ),
-      ),
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
-    );
-  }
-
   /* ───────── Firebase ───────── */
 
   void _listenFirebase() {
@@ -96,16 +70,12 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     context.read<ListViewModel>().refresh();
   }
 
-  /* ───────── Filter ───────── */
-
   List<Map<String, dynamic>> get visibleItems {
     return widget.todo.checklist!.where((e) {
       if (hideCompleted && e['isChecked'] == true) return false;
       return true;
     }).toList();
   }
-
-  /* ───────── UI ───────── */
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +99,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) => StatsScreen(widget.todo)),
+                  builder: (_) => StatsScreen(widget.todo),
+                ),
               );
             },
           ),
@@ -151,8 +122,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Text(title,
-              style: Theme.of(context).textTheme.titleMedium),
+          child:
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
         ),
         ...items.map(_item),
       ],
@@ -208,7 +179,10 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         ),
         trailing: IconButton(
           icon: Icon(
-              item['pinned'] == true ? Icons.push_pin : Icons.push_pin_outlined),
+            item['pinned'] == true
+                ? Icons.push_pin
+                : Icons.push_pin_outlined,
+          ),
           onPressed: () {
             setState(() => item['pinned'] = !(item['pinned'] == true));
             _save();
@@ -252,7 +226,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   }
 }
 
-/* ───────── Stats Screen ───────── */
+/* ───────────────── 📊 Stats Screen (탭 구조) ───────────────── */
 
 class StatsScreen extends StatelessWidget {
   final Todo todo;
@@ -260,50 +234,66 @@ class StatsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final weekly = _weekly();
-    final monthly = _monthly();
-    final total = todo.checklist!
-        .where((e) => e['completedAt'] != null)
-        .length;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('통계')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('통계'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: '주간'),
+              Tab(text: '월간'),
+              Tab(text: '누적'),
+            ],
+          ),
+        ),
+        body: TabBarView(
           children: [
-            Text('🔥 연속 ${_streak()}일 / ✅ 누적 $total',
-                style:
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            const Text('주간 완료'),
-            SizedBox(height: 150, child: BarChart(_chart(weekly))),
-            const SizedBox(height: 20),
-            const Text('월간 완료'),
-            SizedBox(height: 150, child: BarChart(_chart(monthly))),
+            _ChartView(todo, days: 6),
+            _ChartView(todo, days: 29),
+            _TotalView(todo),
           ],
         ),
       ),
     );
   }
+}
 
-  BarChartData _chart(Map<int, int> data) {
-    return BarChartData(
-      barGroups: data.entries
-          .map(
-            (e) => BarChartGroupData(
-          x: e.key,
-          barRods: [BarChartRodData(toY: e.value.toDouble(), width: 14)],
+/* ───────── Chart Views ───────── */
+
+class _ChartView extends StatelessWidget {
+  final Todo todo;
+  final int days;
+  const _ChartView(this.todo, {required this.days});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _range();
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: BarChart(
+        BarChartData(
+          barGroups: data.entries
+              .map(
+                (e) => BarChartGroupData(
+              x: e.key,
+              barRods: [
+                BarChartRodData(
+                  toY: e.value.toDouble(),
+                  width: 14,
+                  borderRadius: BorderRadius.circular(6),
+                )
+              ],
+            ),
+          )
+              .toList(),
         ),
-      )
-          .toList(),
+      ),
     );
   }
 
-  Map<int, int> _weekly() => _range(6);
-  Map<int, int> _monthly() => _range(29);
-
-  Map<int, int> _range(int days) {
+  Map<int, int> _range() {
     final now = DateTime.now();
     final start = now.subtract(Duration(days: days));
     final map = {for (int i = 0; i <= days; i++) i: 0};
@@ -316,27 +306,25 @@ class StatsScreen extends StatelessWidget {
     }
     return map;
   }
+}
 
-  int _streak() {
-    final days = todo.checklist!
-        .where((e) => e['completedAt'] != null)
-        .map((e) =>
-        DateTime.fromMillisecondsSinceEpoch(e['completedAt']))
-        .map((d) => DateTime(d.year, d.month, d.day))
-        .toSet()
-        .toList()
-      ..sort((a, b) => b.compareTo(a));
+/* ───────── Total View ───────── */
 
-    int streak = 0;
-    DateTime? last;
-    for (final d in days) {
-      if (last == null || last.difference(d).inDays == 1) {
-        streak++;
-        last = d;
-      } else {
-        break;
-      }
-    }
-    return streak;
+class _TotalView extends StatelessWidget {
+  final Todo todo;
+  const _TotalView(this.todo);
+
+  @override
+  Widget build(BuildContext context) {
+    final completed =
+        todo.checklist!.where((e) => e['completedAt'] != null).length;
+
+    return Center(
+      child: Text(
+        '✅ 누적 완료\n$completed개',
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+      ),
+    );
   }
 }
