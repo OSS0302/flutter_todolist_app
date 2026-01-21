@@ -9,12 +9,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
 
-const notifyOptions = {
-  '정시': 0,
-  '10분 전': 10,
-  '1시간 전': 60,
-};
-
 class ChecklistScreen extends StatefulWidget {
   final Todo todo;
   const ChecklistScreen({super.key, required this.todo});
@@ -42,15 +36,11 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     _listenFirebase();
   }
 
-  /* ───────── Notification ───────── */
-
   Future<void> _initNotification() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const settings = InitializationSettings(android: android);
     await notifications.initialize(settings);
   }
-
-  /* ───────── Firebase ───────── */
 
   void _listenFirebase() {
     db.collection('checklists').doc(docId).snapshots().listen((doc) {
@@ -133,13 +123,13 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   Widget _item(Map item) {
     return Dismissible(
       key: ValueKey(item),
+      direction: DismissDirection.endToStart,
       background: Container(
         color: Colors.red,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      direction: DismissDirection.endToStart,
       onDismissed: (_) {
         final removed = item;
         setState(() => widget.todo.checklist!.remove(item));
@@ -226,7 +216,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   }
 }
 
-/* ───────────────── 📊 Stats Screen (탭 구조) ───────────────── */
+/* ───────────────── 📊 Stats Screen ───────────────── */
 
 class StatsScreen extends StatelessWidget {
   final Todo todo;
@@ -235,7 +225,7 @@ class StatsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('통계'),
@@ -244,14 +234,16 @@ class StatsScreen extends StatelessWidget {
               Tab(text: '주간'),
               Tab(text: '월간'),
               Tab(text: '누적'),
+              Tab(text: '📆'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            _ChartView(todo, days: 6),
-            _ChartView(todo, days: 29),
+            _BarChartView(todo, days: 6),
+            _BarChartView(todo, days: 29),
             _TotalView(todo),
+            _CalendarHeatmap(todo),
           ],
         ),
       ),
@@ -259,17 +251,16 @@ class StatsScreen extends StatelessWidget {
   }
 }
 
-/* ───────── Chart Views ───────── */
+/* ───────── Bar Chart ───────── */
 
-class _ChartView extends StatelessWidget {
+class _BarChartView extends StatelessWidget {
   final Todo todo;
   final int days;
-  const _ChartView(this.todo, {required this.days});
+  const _BarChartView(this.todo, {required this.days});
 
   @override
   Widget build(BuildContext context) {
     final data = _range();
-
     return Padding(
       padding: const EdgeInsets.all(16),
       child: BarChart(
@@ -279,11 +270,7 @@ class _ChartView extends StatelessWidget {
                 (e) => BarChartGroupData(
               x: e.key,
               barRods: [
-                BarChartRodData(
-                  toY: e.value.toDouble(),
-                  width: 14,
-                  borderRadius: BorderRadius.circular(6),
-                )
+                BarChartRodData(toY: e.value.toDouble(), width: 14),
               ],
             ),
           )
@@ -308,7 +295,67 @@ class _ChartView extends StatelessWidget {
   }
 }
 
-/* ───────── Total View ───────── */
+/* ───────── Calendar Heatmap ───────── */
+
+class _CalendarHeatmap extends StatelessWidget {
+  final Todo todo;
+  const _CalendarHeatmap(this.todo);
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _groupByDate();
+
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 7,
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+        ),
+        itemCount: 30,
+        itemBuilder: (_, i) {
+          final day = DateTime.now().subtract(Duration(days: 29 - i));
+          final key = _key(day);
+          final count = data[key] ?? 0;
+
+          return Container(
+            decoration: BoxDecoration(
+              color: count == 0
+                  ? Colors.grey.shade300
+                  : Colors.green.withOpacity(
+                (count / 5).clamp(0.3, 1.0),
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Center(
+              child: Text(
+                '${day.day}',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Map<String, int> _groupByDate() {
+    final map = <String, int>{};
+    for (final e in todo.checklist!) {
+      if (e['completedAt'] == null) continue;
+      final d =
+      DateTime.fromMillisecondsSinceEpoch(e['completedAt']);
+      final key = _key(d);
+      map[key] = (map[key] ?? 0) + 1;
+    }
+    return map;
+  }
+
+  String _key(DateTime d) => '${d.year}-${d.month}-${d.day}';
+}
+
+/* ───────── Total ───────── */
 
 class _TotalView extends StatelessWidget {
   final Todo todo;
@@ -316,12 +363,11 @@ class _TotalView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completed =
+    final total =
         todo.checklist!.where((e) => e['completedAt'] != null).length;
-
     return Center(
       child: Text(
-        '✅ 누적 완료\n$completed개',
+        '✅ 누적 완료\n$total개',
         textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
       ),
