@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 import 'package:fl_chart/fl_chart.dart';
 
 import 'package:todolist/model/todo.dart';
 import 'package:todolist/presentation/list_view_model.dart';
+
+/* ───────────────── Checklist Screen ───────────────── */
 
 class ChecklistScreen extends StatefulWidget {
   final Todo todo;
@@ -19,9 +18,6 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final controller = TextEditingController();
-  final FlutterLocalNotificationsPlugin notifications =
-  FlutterLocalNotificationsPlugin();
-
   bool hideCompleted = false;
 
   FirebaseFirestore get db => FirebaseFirestore.instance;
@@ -31,15 +27,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   void initState() {
     super.initState();
     widget.todo.checklist ??= [];
-    tz.initializeTimeZones();
-    _initNotification();
     _listenFirebase();
-  }
-
-  Future<void> _initNotification() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: android);
-    await notifications.initialize(settings);
   }
 
   void _listenFirebase() {
@@ -54,9 +42,10 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
   void _save() {
     widget.todo.save();
-    db.collection('checklists').doc(docId).set({
-      'items': widget.todo.checklist,
-    }, SetOptions(merge: true));
+    db.collection('checklists').doc(docId).set(
+      {'items': widget.todo.checklist},
+      SetOptions(merge: true),
+    );
     context.read<ListViewModel>().refresh();
   }
 
@@ -216,7 +205,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   }
 }
 
-/* ───────────────── 📊 Stats Screen ───────────────── */
+/* ───────────────── Stats Screen ───────────────── */
 
 class StatsScreen extends StatelessWidget {
   final Todo todo;
@@ -270,7 +259,11 @@ class _BarChartView extends StatelessWidget {
                 (e) => BarChartGroupData(
               x: e.key,
               barRods: [
-                BarChartRodData(toY: e.value.toDouble(), width: 14),
+                BarChartRodData(
+                  toY: e.value.toDouble(),
+                  width: 14,
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ],
             ),
           )
@@ -355,7 +348,7 @@ class _CalendarHeatmap extends StatelessWidget {
   String _key(DateTime d) => '${d.year}-${d.month}-${d.day}';
 }
 
-/* ───────── Total ───────── */
+/* ───────── Total View ───────── */
 
 class _TotalView extends StatelessWidget {
   final Todo todo;
