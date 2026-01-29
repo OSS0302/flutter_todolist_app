@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '../models/checklist_item.dart';
 import '../services/auth_service.dart';
-
-enum SortType { newest, oldest, important }
 
 class ChecklistScreen extends StatefulWidget {
   final String todoId;
@@ -15,9 +16,11 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final controller = TextEditingController();
+  final FlutterLocalNotificationsPlugin noti =
+  FlutterLocalNotificationsPlugin();
 
   bool hideCompleted = false;
-  SortType sortType = SortType.newest;
+  String selectedCategory = '전체';
 
   FirebaseFirestore get db => FirebaseFirestore.instance;
 
@@ -28,11 +31,27 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       .doc(widget.todoId)
       .snapshots();
 
+  @override
+  void initState() {
+    super.initState();
+    _initNoti();
+  }
+
+  Future<void> _initNoti() async {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    await noti.initialize(const InitializationSettings(android: android));
+  }
+
   List<ChecklistItem> _parse(Map<String, dynamic>? data) {
     final list = List<Map<String, dynamic>>.from(data?['items'] ?? []);
     final items = list.map(ChecklistItem.fromMap).toList();
     _handleRepeats(items);
-    return _sort(items);
+
+    if (selectedCategory != '전체') {
+      return items.where((e) => e.category == selectedCategory).toList();
+    }
+
+    return items;
   }
 
   void _handleRepeats(List<ChecklistItem> items) {
@@ -56,21 +75,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     }
   }
 
-  List<ChecklistItem> _sort(List<ChecklistItem> items) {
-    switch (sortType) {
-      case SortType.newest:
-        items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-      case SortType.oldest:
-        items.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        break;
-      case SortType.important:
-        items.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-        break;
-    }
-    return items;
-  }
-
   Future<void> _save(List<ChecklistItem> items) async {
     await db
         .collection('users')
@@ -79,6 +83,33 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         .doc(widget.todoId)
         .set({'items': items.map((e) => e.toMap()).toList()},
         SetOptions(merge: true));
+  }
+
+  Future<void> _schedule(ChecklistItem item) async {
+    if (item.repeat == 'none') return;
+
+    final details = const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'checklist',
+        'Checklist',
+        importance: Importance.max,
+      ),
+    );
+
+    final now = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5));
+
+    await noti.zonedSchedule(
+      item.createdAt,
+      '체크리스트',
+      item.title,
+      now,
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+      UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents:
+      item.repeat == 'daily' ? DateTimeComponents.time : null,
+    );
   }
 
   @override
@@ -104,7 +135,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text('체크리스트  $percent%'),
+            title: Text('체크리스트 $percent%'),
             actions: [
               IconButton(
                 icon: Icon(
@@ -113,20 +144,11 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                     setState(() => hideCompleted = !hideCompleted),
               ),
               PopupMenuButton<String>(
-                onSelected: (v) {
-                  if (v == 'sort') {
-                    setState(() {
-                      sortType = SortType
-                          .values[(sortType.index + 1) % SortType.values.length];
-                    });
-                  } else if (v == 'clear') {
-                    items.removeWhere((e) => e.isChecked);
-                    _save(items);
-                  }
-                },
+                onSelected: (v) => setState(() => selectedCategory = v),
                 itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'sort', child: Text('정렬 변경')),
-                  PopupMenuItem(value: 'clear', child: Text('완료 삭제')),
+                  PopupMenuItem(value: '전체', child: Text('전체')),
+                  PopupMenuItem(value: '업무', child: Text('업무')),
+                  PopupMenuItem(value: '개인', child: Text('개인')),
                 ],
               )
             ],
@@ -134,13 +156,13 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           body: ReorderableListView.builder(
             padding: const EdgeInsets.only(bottom: 80),
             itemCount: items.length,
-            onReorder: (oldIndex, newIndex) {
-              if (newIndex > oldIndex) newIndex--;
-              final item = items.removeAt(oldIndex);
-              items.insert(newIndex, item);
+            onReorder: (o, n) {
+              if (n > o) n--;
+              final item = items.removeAt(o);
+              items.insert(n, item);
               _save(items);
             },
-            itemBuilder: (_, i) => _tile(items[i], items, i),
+            itemBuilder: (_, i) => _tile(items[i], items),
           ),
           bottomNavigationBar: _input(items),
         );
@@ -148,14 +170,30 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
   }
 
-  Widget _tile(ChecklistItem item, List<ChecklistItem> items, int index) {
-    return AnimatedContainer(
+  Widget _tile(ChecklistItem item, List<ChecklistItem> items) {
+    return Slidable(
       key: ValueKey(item.createdAt),
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        children: [
+          SlidableAction(
+            icon: Icons.edit,
+            backgroundColor: Colors.blue,
+            onPressed: (_) => _edit(item, items),
+          ),
+          SlidableAction(
+            icon: Icons.delete,
+            backgroundColor: Colors.red,
+            onPressed: (_) {
+              items.remove(item);
+              _save(items);
+            },
+          ),
+        ],
+      ),
       child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: ListTile(
-          onLongPress: () => _edit(item, items),
           leading: Checkbox(
             value: item.isChecked,
             onChanged: (v) {
@@ -163,32 +201,23 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               item.completedAt =
               v ? DateTime.now().millisecondsSinceEpoch : null;
               _save(items);
-              setState(() {});
             },
           ),
-          title: Text(
-            item.title,
-            style: TextStyle(
-              decoration:
-              item.isChecked ? TextDecoration.lineThrough : null,
-            ),
+          title: AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: item.isChecked ? 0.5 : 1,
+            child: Text(item.title),
           ),
-          subtitle: Text('반복: ${item.repeat}'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: Icon(
-                  item.pinned ? Icons.star : Icons.star_border,
-                  color: item.pinned ? Colors.amber : null,
-                ),
-                onPressed: () {
-                  item.pinned = !item.pinned;
-                  _save(items);
-                },
-              ),
-              const Icon(Icons.drag_handle),
-            ],
+          subtitle: Text('${item.category} • ${item.repeat}'),
+          trailing: IconButton(
+            icon: Icon(
+              item.pinned ? Icons.star : Icons.star_border,
+              color: item.pinned ? Colors.amber : null,
+            ),
+            onPressed: () {
+              item.pinned = !item.pinned;
+              _save(items);
+            },
           ),
         ),
       ),
@@ -216,12 +245,18 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
   }
 
-  void _add(List<ChecklistItem> items) {
+  void _add(List<ChecklistItem> items) async {
     if (controller.text.trim().isEmpty) return;
 
-    items.add(ChecklistItem(title: controller.text.trim()));
+    final item = ChecklistItem(
+      title: controller.text.trim(),
+      category: selectedCategory,
+    );
+
+    items.add(item);
     controller.clear();
     _save(items);
+    _schedule(item);
   }
 
   void _edit(ChecklistItem item, List<ChecklistItem> items) {
