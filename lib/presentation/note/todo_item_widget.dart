@@ -83,7 +83,7 @@ class _TodoCardState extends State<TodoCard> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ChecklistScreen(todo: widget.todo),
+                      builder: (_) => ChecklistScreen(todo: widget.todo, todoId: '',),
                     ),
                   );
                 },

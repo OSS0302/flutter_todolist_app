@@ -3,12 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:todolist/model/todo.dart';
 import '../models/checklist_item.dart';
 import '../services/auth_service.dart';
 
 class ChecklistScreen extends StatefulWidget {
   final String todoId;
-  const ChecklistScreen({super.key, required this.todoId});
+  const ChecklistScreen({super.key, required this.todoId,  required Todo todo});
 
   @override
   State<ChecklistScreen> createState() => _ChecklistScreenState();
