@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:todolist/model/todo.dart';
 import '../models/checklist_item.dart';
 import '../services/auth_service.dart';
 
 class ChecklistScreen extends StatefulWidget {
   final String todoId;
-  const ChecklistScreen({super.key, required this.todoId,  required Todo todo});
+  const ChecklistScreen({super.key, required this.todoId});
 
   @override
   State<ChecklistScreen> createState() => _ChecklistScreenState();
@@ -17,8 +17,7 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final controller = TextEditingController();
-  final FlutterLocalNotificationsPlugin noti =
-  FlutterLocalNotificationsPlugin();
+  final noti = FlutterLocalNotificationsPlugin();
 
   bool hideCompleted = false;
   String selectedCategory = '전체';
@@ -39,41 +38,29 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   }
 
   Future<void> _initNoti() async {
+    tz.initializeTimeZones();
+
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await noti.initialize(const InitializationSettings(android: android));
+
+    await noti.initialize(
+      const InitializationSettings(android: android),
+    );
   }
 
   List<ChecklistItem> _parse(Map<String, dynamic>? data) {
     final list = List<Map<String, dynamic>>.from(data?['items'] ?? []);
     final items = list.map(ChecklistItem.fromMap).toList();
-    _handleRepeats(items);
+
+    items.sort((a, b) {
+      if (a.pinned != b.pinned) return b.pinned ? 1 : -1;
+      return b.createdAt.compareTo(a.createdAt);
+    });
 
     if (selectedCategory != '전체') {
       return items.where((e) => e.category == selectedCategory).toList();
     }
 
     return items;
-  }
-
-  void _handleRepeats(List<ChecklistItem> items) {
-    final now = DateTime.now();
-
-    for (final i in items) {
-      if (i.completedAt == null || i.repeat == 'none') continue;
-
-      final last = DateTime.fromMillisecondsSinceEpoch(i.completedAt!);
-
-      bool reset = false;
-
-      if (i.repeat == 'daily') reset = last.day != now.day;
-      if (i.repeat == 'weekly') reset = now.difference(last).inDays >= 7;
-      if (i.repeat == 'monthly') reset = last.month != now.month;
-
-      if (reset) {
-        i.isChecked = false;
-        i.completedAt = null;
-      }
-    }
   }
 
   Future<void> _save(List<ChecklistItem> items) async {
@@ -94,10 +81,17 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         'checklist',
         'Checklist',
         importance: Importance.max,
+        priority: Priority.high,
       ),
     );
 
-    final now = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5));
+    final now = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 3));
+
+    DateTimeComponents? repeat;
+
+    if (item.repeat == 'daily') repeat = DateTimeComponents.time;
+    if (item.repeat == 'weekly') repeat = DateTimeComponents.dayOfWeekAndTime;
+    if (item.repeat == 'monthly') repeat = DateTimeComponents.dayOfMonthAndTime;
 
     await noti.zonedSchedule(
       item.createdAt,
@@ -106,11 +100,14 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       now,
       details,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: repeat,
       uiLocalNotificationDateInterpretation:
       UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents:
-      item.repeat == 'daily' ? DateTimeComponents.time : null,
     );
+  }
+
+  Future<void> _cancel(int id) async {
+    await noti.cancel(id);
   }
 
   @override
@@ -187,6 +184,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             backgroundColor: Colors.red,
             onPressed: (_) {
               items.remove(item);
+              _cancel(item.createdAt);
               _save(items);
             },
           ),
@@ -204,10 +202,12 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               _save(items);
             },
           ),
-          title: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: item.isChecked ? 0.5 : 1,
-            child: Text(item.title),
+          title: Text(
+            item.title,
+            style: TextStyle(
+              decoration:
+              item.isChecked ? TextDecoration.lineThrough : null,
+            ),
           ),
           subtitle: Text('${item.category} • ${item.repeat}'),
           trailing: IconButton(
@@ -256,8 +256,9 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
     items.add(item);
     controller.clear();
-    _save(items);
-    _schedule(item);
+
+    await _save(items);
+    await _schedule(item);
   }
 
   void _edit(ChecklistItem item, List<ChecklistItem> items) {
