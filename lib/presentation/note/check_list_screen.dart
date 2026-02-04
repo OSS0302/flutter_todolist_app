@@ -4,7 +4,6 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:todolist/model/todo.dart';
 
 import '../../model/check_list_item.dart';
 
@@ -12,7 +11,10 @@ import '../../model/check_list_item.dart';
 class ChecklistScreen extends StatefulWidget {
   final String todoId;
 
-  const ChecklistScreen({super.key, required this.todoId,  required Todo todo});
+  const ChecklistScreen({
+    super.key,
+    required this.todoId,
+  });
 
   @override
   State<ChecklistScreen> createState() => _ChecklistScreenState();
@@ -25,11 +27,13 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   bool hideCompleted = false;
   String category = '전체';
 
+  final String uid = 'localUser';
+
   FirebaseFirestore get db => FirebaseFirestore.instance;
 
   DocumentReference<Map<String, dynamic>> get _doc => db
       .collection('users')
-      .doc(AuthService.uid)
+      .doc(uid)
       .collection('todos')
       .doc(widget.todoId);
 
@@ -149,12 +153,10 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           ),
           body: ReorderableListView.builder(
             itemCount: items.length,
-            onReorder: (oldIndex, newIndex) async {
-              if (newIndex > oldIndex) newIndex--;
-
-              final moved = items.removeAt(oldIndex);
-              items.insert(newIndex, moved);
-
+            onReorder: (o, n) async {
+              if (n > o) n--;
+              final moved = items.removeAt(o);
+              items.insert(n, moved);
               await _save(items);
             },
             itemBuilder: (_, i) => _tile(items[i], items),
@@ -172,11 +174,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         motion: const DrawerMotion(),
         children: [
           SlidableAction(
-            icon: Icons.edit,
-            backgroundColor: Colors.blue,
-            onPressed: (_) => _edit(item, items),
-          ),
-          SlidableAction(
             icon: Icons.delete,
             backgroundColor: Colors.red,
             onPressed: (_) async {
@@ -187,31 +184,13 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           ),
         ],
       ),
-      child: ListTile(
-        leading: Checkbox(
-          value: item.isChecked,
-          onChanged: (v) async {
-            item.isChecked = v!;
-            await _save(items);
-          },
-        ),
-        title: Text(
-          item.title,
-          style: TextStyle(
-              decoration:
-              item.isChecked ? TextDecoration.lineThrough : null),
-        ),
-        subtitle: Text('${item.category} • ${item.repeat}'),
-        trailing: IconButton(
-          icon: Icon(
-            item.pinned ? Icons.star : Icons.star_border,
-            color: item.pinned ? Colors.amber : null,
-          ),
-          onPressed: () async {
-            item.pinned = !item.pinned;
-            await _save(items);
-          },
-        ),
+      child: CheckboxListTile(
+        value: item.isChecked,
+        title: Text(item.title),
+        onChanged: (v) async {
+          item.isChecked = v!;
+          await _save(items);
+        },
       ),
     );
   }
@@ -249,33 +228,9 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
 
     items.add(item);
-
     controller.clear();
 
     await _save(items);
     await _schedule(item);
-  }
-
-  void _edit(ChecklistItem item, List<ChecklistItem> items) {
-    final c = TextEditingController(text: item.title);
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        content: TextField(controller: c),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('취소')),
-          TextButton(
-              onPressed: () async {
-                item.title = c.text;
-                await _save(items);
-                Navigator.pop(context);
-              },
-              child: const Text('저장')),
-        ],
-      ),
-    );
   }
 }
