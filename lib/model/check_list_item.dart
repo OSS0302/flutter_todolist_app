@@ -1,11 +1,17 @@
 class ChecklistItem {
   int id;
   String title;
+
   bool isChecked;
   bool pinned;
+
   String repeat;
   String category;
+
   int createdAt;
+
+  int streak;
+  int? lastCompletedDate;
 
   ChecklistItem({
     required this.id,
@@ -14,6 +20,8 @@ class ChecklistItem {
     this.pinned = false,
     this.repeat = 'none',
     this.category = '전체',
+    this.streak = 0,
+    this.lastCompletedDate,
     int? createdAt,
   }) : createdAt = createdAt ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -25,6 +33,8 @@ class ChecklistItem {
     repeat: m['repeat'] ?? 'none',
     category: m['category'] ?? '전체',
     createdAt: m['createdAt'],
+    streak: m['streak'] ?? 0,
+    lastCompletedDate: m['lastCompletedDate'],
   );
 
   Map<String, dynamic> toMap() => {
@@ -35,5 +45,7 @@ class ChecklistItem {
     'repeat': repeat,
     'category': category,
     'createdAt': createdAt,
+    'streak': streak,
+    'lastCompletedDate': lastCompletedDate,
   };
 }
