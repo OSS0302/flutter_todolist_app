@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 
 import '../../model/check_list_item.dart';
 
@@ -21,8 +18,6 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   final controller = TextEditingController();
-  final noti = FlutterLocalNotificationsPlugin();
-
   bool darkMode = false;
   bool hideCompleted = false;
 
@@ -32,18 +27,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
   DocumentReference<Map<String, dynamic>> get _doc =>
       db.collection('users').doc(uid).collection('todos').doc(widget.todoId);
-
-  @override
-  void initState() {
-    super.initState();
-    _initNotification();
-  }
-
-  Future<void> _initNotification() async {
-    tz.initializeTimeZones();
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await noti.initialize(const InitializationSettings(android: android));
-  }
 
   Stream<List<ChecklistItem>> get _itemsStream =>
       _doc.snapshots().map((snap) {
@@ -68,19 +51,35 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       ..sort((a, b) => b.compareTo(a));
 
     int streak = 0;
-    DateTime today = DateTime.now();
-    DateTime checkDay =
-    DateTime(today.year, today.month, today.day);
+    DateTime today =
+    DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
     for (var d in dates) {
-      if (d == checkDay) {
+      if (d == today) {
         streak++;
-        checkDay = checkDay.subtract(const Duration(days: 1));
-      } else if (d.isBefore(checkDay)) {
+        today = today.subtract(const Duration(days: 1));
+      } else if (d.isBefore(today)) {
         break;
       }
     }
     return streak;
+  }
+
+  Future<void> _updateBestStreak(int current) async {
+    final snap = await _doc.get();
+    final best = snap.data()?['bestStreak'] ?? 0;
+    if (current > best) {
+      await _doc.set({'bestStreak': current},
+          SetOptions(merge: true));
+    }
+  }
+
+  int _calculateLevel(int totalCompleted) {
+    if (totalCompleted >= 200) return 5;
+    if (totalCompleted >= 100) return 4;
+    if (totalCompleted >= 50) return 3;
+    if (totalCompleted >= 20) return 2;
+    return 1;
   }
 
   @override
@@ -102,13 +101,25 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         final done = items.where((e) => e.isChecked).length;
         final percent =
         items.isEmpty ? 0 : ((done / items.length) * 100).round();
+
         final streak = _calculateStreak(items);
+        _updateBestStreak(streak);
+
+        final level = _calculateLevel(done);
 
         return Theme(
-          data: darkMode ? ThemeData.dark() : ThemeData.light(),
+          data: darkMode
+              ? ThemeData.dark(useMaterial3: true)
+              : ThemeData.light(useMaterial3: true),
           child: Scaffold(
             appBar: AppBar(
-              title: Text('체크리스트 $percent% 🔥$streak'),
+              title: Row(
+                children: [
+                  Text('체크리스트 $percent% 🔥$streak'),
+                  const SizedBox(width: 12),
+                  _levelBadge(level),
+                ],
+              ),
               actions: [
                 IconButton(
                   icon: Icon(darkMode ? Icons.dark_mode : Icons.light_mode),
@@ -118,6 +129,10 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                 IconButton(
                   icon: const Icon(Icons.calendar_month),
                   onPressed: () => _openCalendar(items),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.bar_chart),
+                  onPressed: () => _openWeeklyChart(items),
                 ),
                 IconButton(
                   icon: const Icon(Icons.pie_chart),
@@ -144,34 +159,59 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     );
   }
 
-  Widget _tile(ChecklistItem item, List<ChecklistItem> items) {
-    return Slidable(
-      key: ValueKey(item.id),
-      endActionPane: ActionPane(
-        motion: const DrawerMotion(),
-        children: [
-          SlidableAction(
-            icon: Icons.delete,
-            backgroundColor: Colors.red,
-            onPressed: (_) async {
-              items.remove(item);
-              await _save(items);
-            },
-          ),
-        ],
+  Widget _levelBadge(int level) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.blue,
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: CheckboxListTile(
-        value: item.isChecked,
-        title: Text(
-          item.title,
-          style: TextStyle(
-              decoration:
-              item.isChecked ? TextDecoration.lineThrough : null),
+      child: Text(
+        'Lv.$level',
+        style: const TextStyle(color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _tile(ChecklistItem item, List<ChecklistItem> items) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: item.isChecked
+            ? Colors.green.withOpacity(0.1)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Slidable(
+        key: ValueKey(item.id),
+        endActionPane: ActionPane(
+          motion: const DrawerMotion(),
+          children: [
+            SlidableAction(
+              icon: Icons.delete,
+              backgroundColor: Colors.red,
+              onPressed: (_) async {
+                items.remove(item);
+                await _save(items);
+              },
+            ),
+          ],
         ),
-        onChanged: (v) async {
-          item.isChecked = v!;
-          await _save(items);
-        },
+        child: CheckboxListTile(
+          value: item.isChecked,
+          title: Text(
+            item.title,
+            style: TextStyle(
+                decoration:
+                item.isChecked ? TextDecoration.lineThrough : null),
+          ),
+          onChanged: (v) async {
+            item.isChecked = v!;
+            await _save(items);
+          },
+        ),
       ),
     );
   }
@@ -185,13 +225,17 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             Expanded(
               child: TextField(
                 controller: controller,
-                decoration: const InputDecoration(hintText: '항목 추가'),
+                decoration: const InputDecoration(
+                  hintText: '항목 추가',
+                  border: OutlineInputBorder(),
+                ),
                 onSubmitted: (_) => _add(items),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.add),
+            const SizedBox(width: 8),
+            ElevatedButton(
               onPressed: () => _add(items),
+              child: const Icon(Icons.add),
             )
           ],
         ),
@@ -221,13 +265,12 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       }
     }
 
-    Color heatColor(int count) {
+    Color heat(int count) {
       if (count == 0) return Colors.transparent;
       if (count == 1) return Colors.green.shade100;
       if (count == 2) return Colors.green.shade300;
       if (count == 3) return Colors.green.shade500;
-      if (count >= 4) return Colors.green.shade800;
-      return Colors.transparent;
+      return Colors.green.shade800;
     }
 
     Navigator.push(
@@ -246,13 +289,54 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                 return Container(
                   margin: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: heatColor(count),
+                    color: heat(count),
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
                   child: Text('${day.day}'),
                 );
               },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openWeeklyChart(List<ChecklistItem> items) {
+    final now = DateTime.now();
+    final stats = <String, int>{};
+
+    for (int i = 6; i >= 0; i--) {
+      final day = now.subtract(Duration(days: i));
+      final key = DateFormat('MM/dd').format(day);
+      stats[key] = items.where((e) {
+        final d = e.createdAt;
+        return e.isChecked &&
+            d.year == day.year &&
+            d.month == day.month &&
+            d.day == day.day;
+      }).length;
+    }
+
+    final keys = stats.keys.toList();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('주간 통계')),
+          body: Padding(
+            padding: const EdgeInsets.all(20),
+            child: BarChart(
+              BarChartData(
+                barGroups: List.generate(keys.length, (i) {
+                  return BarChartGroupData(x: i, barRods: [
+                    BarChartRodData(
+                        toY: stats[keys[i]]!.toDouble(), width: 14)
+                  ]);
+                }),
+              ),
             ),
           ),
         ),
